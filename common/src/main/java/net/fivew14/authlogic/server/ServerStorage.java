@@ -106,6 +106,27 @@ public class ServerStorage {
     }
     
     /**
+     * Removes a player's stored public key.
+     * This is used when an admin needs to reset a player's TOFU state,
+     * for example when a player changes their password.
+     * 
+     * @param uuid Player UUID
+     * @return true if a key was removed, false if no key existed
+     */
+    public boolean removePlayerKey(UUID uuid) {
+        return playerPublicKeys.remove(uuid) != null;
+    }
+    
+    /**
+     * Gets all registered player UUIDs.
+     * 
+     * @return Set of all player UUIDs with stored keys
+     */
+    public Set<UUID> getRegisteredPlayers() {
+        return Collections.unmodifiableSet(playerPublicKeys.keySet());
+    }
+    
+    /**
      * Gets or creates the server's RSA keypair.
      * Loads from disk if exists, otherwise generates and saves new keypair.
      * 

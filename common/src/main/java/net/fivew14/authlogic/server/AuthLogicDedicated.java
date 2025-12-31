@@ -1,29 +1,223 @@
 package net.fivew14.authlogic.server;
 
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.context.CommandContext;
 import com.mojang.logging.LogUtils;
+import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.event.events.common.LifecycleEvent;
+import dev.architectury.event.events.common.PlayerEvent;
+import dev.architectury.event.events.common.TickEvent;
+import net.fivew14.authlogic.AuthLogic;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.dedicated.DedicatedServer;
+import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+
+import java.io.IOException;
+import java.util.Set;
+import java.util.UUID;
 
 public class AuthLogicDedicated {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static boolean isRunningDedicated;
     private static boolean isActive = false;
     private static MinecraftServer server = null;
+    
+    /**
+     * Counter for cleanup tick interval.
+     * Cleanup runs every CLEANUP_INTERVAL_TICKS ticks (roughly every 5 seconds at 20 TPS).
+     */
+    private static int tickCounter = 0;
+    private static final int CLEANUP_INTERVAL_TICKS = 100; // 5 seconds at 20 TPS
 
     public static void onDedicatedStartup() {
         isRunningDedicated = true;
         LifecycleEvent.SERVER_STARTED.register(AuthLogicDedicated::serverStarting);
+        PlayerEvent.PLAYER_JOIN.register(AuthLogicDedicated::onPlayerJoin);
+        TickEvent.SERVER_POST.register(AuthLogicDedicated::onServerTick);
+
+        CommandRegistrationEvent.EVENT.register(AuthLogicDedicated::registerCommands);
     }
 
     private static void serverStarting(MinecraftServer server) {
         AuthLogicDedicated.server = server;
 
         if (server.usesAuthentication()) {
-            LogUtils.getLogger().error("This server is running in secure connection mode which disables the functionality of AuthLogic.");
-            LogUtils.getLogger().error("Please update your server.properties value of online-mode to false.");
+            LOGGER.error("This server is running in secure connection mode which disables the functionality of AuthLogic.");
+            LOGGER.error("Please update your server.properties value of online-mode to false.");
         }
 
         isActive = !server.usesAuthentication();
+    }
+
+    private static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext, Commands.CommandSelection selection) {
+        dispatcher.register(
+            Commands.literal("authlogic")
+                .requires(source -> source.hasPermission(3)) // Require OP level 3
+                .then(Commands.literal("resetkey")
+                    .then(Commands.argument("player", StringArgumentType.word())
+                        .executes(AuthLogicDedicated::executeResetKey)))
+                .then(Commands.literal("list")
+                    .executes(AuthLogicDedicated::executeListPlayers))
+                .then(Commands.literal("status")
+                    .executes(AuthLogicDedicated::executeStatus))
+        );
+    }
+    
+    /**
+     * Resets a player's stored public key by username.
+     * This allows the player to re-authenticate with a new key (e.g., after password change).
+     */
+    private static int executeResetKey(CommandContext<CommandSourceStack> context) {
+        String playerName = StringArgumentType.getString(context, "player");
+        CommandSourceStack source = context.getSource();
+        
+        // Find UUID for the player name by looking through registered players
+        ServerStorage storage = AuthLogic.getServerStorage();
+        Set<UUID> registeredPlayers = storage.getRegisteredPlayers();
+        
+        // Try to find the player by checking the server's player list or stored data
+        // Since we store by UUID, we need to find the UUID for this username
+        UUID targetUuid = null;
+        
+        // First check if player is online
+        if (server != null) {
+            ServerPlayer onlinePlayer = server.getPlayerList().getPlayerByName(playerName);
+            if (onlinePlayer != null) {
+                targetUuid = onlinePlayer.getUUID();
+            }
+        }
+        
+        // If not online, try offline UUID (for offline mode servers)
+        if (targetUuid == null) {
+            // In offline mode, UUID is derived from username
+            targetUuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes());
+        }
+        
+        if (!storage.isPlayerRegistered(targetUuid)) {
+            source.sendFailure(Component.literal("Player '" + playerName + "' has no stored key."));
+            return 0;
+        }
+        
+        boolean removed = storage.removePlayerKey(targetUuid);
+        if (removed) {
+            try {
+                storage.save();
+                source.sendSuccess(() -> Component.literal(
+                    "Successfully reset key for player '" + playerName + "'. They will need to re-authenticate."
+                ), true);
+                LOGGER.info("Admin {} reset authentication key for player {}", 
+                    source.getTextName(), playerName);
+                return 1;
+            } catch (IOException e) {
+                LOGGER.error("Failed to save storage after key reset", e);
+                source.sendFailure(Component.literal("Key removed but failed to save: " + e.getMessage()));
+                return 0;
+            }
+        } else {
+            source.sendFailure(Component.literal("Failed to remove key for player '" + playerName + "'."));
+            return 0;
+        }
+    }
+    
+    /**
+     * Lists all players with stored authentication keys.
+     */
+    private static int executeListPlayers(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerStorage storage = AuthLogic.getServerStorage();
+        Set<UUID> registeredPlayers = storage.getRegisteredPlayers();
+        
+        if (registeredPlayers.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("No players have registered authentication keys."), false);
+            return 1;
+        }
+        
+        source.sendSuccess(() -> Component.literal("Registered players (" + registeredPlayers.size() + "):"), false);
+        for (UUID uuid : registeredPlayers) {
+            // Try to get player name if online
+            String playerName = null;
+            if (server != null) {
+                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                if (player != null) {
+                    playerName = player.getName().getString();
+                }
+            }
+            
+            final String displayName = playerName != null 
+                ? playerName + " (" + uuid + ")"
+                : uuid.toString();
+            source.sendSuccess(() -> Component.literal("  - " + displayName), false);
+        }
+        
+        return 1;
+    }
+    
+    /**
+     * Shows AuthLogic status information.
+     */
+    private static int executeStatus(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerStorage storage = AuthLogic.getServerStorage();
+        
+        source.sendSuccess(() -> Component.literal("=== AuthLogic Status ==="), false);
+        source.sendSuccess(() -> Component.literal("Active: " + (isActive ? "Yes" : "No (online-mode enabled)")), false);
+        source.sendSuccess(() -> Component.literal("Registered players: " + storage.getRegisteredPlayers().size()), false);
+        source.sendSuccess(() -> Component.literal("Pending auth states: " + ServerAuthState.getAuthStateCount()), false);
+        source.sendSuccess(() -> Component.literal("Pending joins: " + ServerAuthState.getAuthenticatedPlayersCount()), false);
+        
+        return 1;
+    }
+
+    /**
+     * Called when a player joins the server.
+     * Verifies that the player completed authentication during login.
+     * If not authenticated, disconnects the player.
+     * 
+     * @param player The joining player
+     */
+    private static void onPlayerJoin(ServerPlayer player) {
+        // Skip if not active (online-mode server) or singleplayer
+        if (!isActive || server == null || server.isSingleplayer()) {
+            return;
+        }
+        
+        // Check if player was authenticated during login (by username)
+        String username = player.getName().getString();
+        boolean wasAuthenticated = ServerAuthState.consumeAuthentication(username);
+        
+        if (!wasAuthenticated) {
+            LOGGER.warn("Player {} ({}) joined without completing AuthLogic authentication - disconnecting",
+                username, player.getUUID());
+            player.connection.disconnect(Component.literal(
+                "Authentication required. Please install the AuthLogic mod to play on this server."
+            ));
+        } else {
+            LOGGER.debug("Player {} ({}) authentication verified on join",
+                username, player.getUUID());
+        }
+    }
+    
+    /**
+     * Called every server tick.
+     * Periodically cleans up stale authentication states.
+     * 
+     * @param server The Minecraft server
+     */
+    private static void onServerTick(MinecraftServer server) {
+        if (!isActive) {
+            return;
+        }
+        
+        tickCounter++;
+        if (tickCounter >= CLEANUP_INTERVAL_TICKS) {
+            tickCounter = 0;
+            ServerAuthState.cleanupStaleEntries();
+        }
     }
 
     public static boolean isRunningDedicated() {

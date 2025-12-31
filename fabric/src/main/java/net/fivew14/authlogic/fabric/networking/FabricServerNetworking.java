@@ -1,11 +1,13 @@
 package net.fivew14.authlogic.fabric.networking;
 
 
+import com.mojang.authlib.GameProfile;
 import com.mojang.logging.LogUtils;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking;
 import net.fivew14.authlogic.AuthLogic;
+import net.fivew14.authlogic.mixin.ServerLoginPacketListenerImplAccessor;
 import net.fivew14.authlogic.server.ServerNetworking;
 import net.fivew14.authlogic.verification.VerificationException;
 import net.minecraft.network.FriendlyByteBuf;
@@ -66,8 +68,11 @@ public class FabricServerNetworking {
         
         try {
             // Validate client response - correlation is by server nonce in the response
-            ServerNetworking.validateClientResponse(buf, handler::getUserName);
-            LOGGER.info("Client authenticated successfully: {}", handler.getUserName());
+            // Get the actual username from the game profile via mixin accessor
+            GameProfile profile = ((ServerLoginPacketListenerImplAccessor) handler).authlogic$getGameProfile();
+            String expectedUsername = profile != null ? profile.getName() : "unknown";
+            ServerNetworking.validateClientResponse(buf, expectedUsername);
+            LOGGER.info("Client authenticated successfully: {}", expectedUsername);
             
         } catch (VerificationException e) {
             LOGGER.error("Client authentication failed: {}", e.getMessage());

@@ -1,10 +1,13 @@
 package net.fivew14.authlogic.forge.networking;
 
+import com.mojang.authlib.GameProfile;
 import com.mojang.logging.LogUtils;
+import net.fivew14.authlogic.mixin.ServerLoginPacketListenerImplAccessor;
 import net.fivew14.authlogic.server.ServerNetworking;
 import net.fivew14.authlogic.verification.VerificationException;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import net.minecraftforge.network.HandshakeHandler;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
@@ -62,14 +65,19 @@ public final class C2SQueryResponse implements IntSupplier {
         var networkManager = ctx.get().getNetworkManager();
         
         try {
-            // Validate client response - correlation is by server nonce in the response
-            // Username is extracted from the verified payload, not from sender (which is null during LOGIN)
-            ServerNetworking.validateClientResponse(
-                msg.payload,
-                () -> "unknown" // Username comes from verified payload, this is just for logging
-            );
+            // Get the expected username from Minecraft's login handler game profile via mixin accessor
+            String expectedUsername = "unknown";
+            if (networkManager.getPacketListener() instanceof ServerLoginPacketListenerImpl loginHandler) {
+                GameProfile profile = ((ServerLoginPacketListenerImplAccessor) loginHandler).authlogic$getGameProfile();
+                if (profile != null) {
+                    expectedUsername = profile.getName();
+                }
+            }
             
-            LOGGER.info("Client authenticated successfully");
+            // Validate client response - correlation is by server nonce in the response
+            ServerNetworking.validateClientResponse(msg.payload, expectedUsername);
+            
+            LOGGER.info("Client authenticated successfully: {}", expectedUsername);
             ctx.get().setPacketHandled(true);
             
         } catch (VerificationException e) {

@@ -104,12 +104,12 @@ public class ServerNetworking {
      * Throws VerificationException on any failure - caller should disconnect immediately.
      * 
      * @param buf FriendlyByteBuf containing client response
-     * @param usernameGetter Function to get username (for logging)
+     * @param expectedUsername The username from Minecraft's login flow (used for verification)
      * @throws VerificationException if verification fails
      */
     public static void validateClientResponse(
         FriendlyByteBuf buf,
-        UsernameGetter usernameGetter
+        String expectedUsername
     ) throws VerificationException {
         try {
             // 1. Deserialize client response
@@ -147,6 +147,14 @@ public class ServerNetworking {
             
             if (!result.success) {
                 throw new VerificationException("Verification failed: " + result.failureReason);
+            }
+            
+            // 6.5. Verify authenticated username matches Minecraft's expected username
+            if (!result.username.equals(expectedUsername)) {
+                throw new VerificationException(
+                    "Username mismatch: authenticated as '" + result.username + 
+                    "' but connecting as '" + expectedUsername + "'"
+                );
             }
             
             // 7. TOFU check - verify player's public key matches previously stored key
@@ -187,6 +195,9 @@ public class ServerNetworking {
             // 10. Replace in-progress state with finished state
             ServerAuthState.STATE.put(response.serverNonce, finished);
             
+            // 11. Mark player as authenticated for join verification
+            ServerAuthState.markAuthenticated(result.username);
+            
             LOGGER.info("Successfully authenticated player {} ({})", result.username, result.playerUUID);
             
         } catch (VerificationException e) {
@@ -198,10 +209,5 @@ public class ServerNetworking {
             LOGGER.error("Unexpected error during client validation", e);
             throw new VerificationException("Internal server error during authentication", e);
         }
-    }
-    
-    @FunctionalInterface
-    public interface UsernameGetter {
-        String getUsername();
     }
 }
