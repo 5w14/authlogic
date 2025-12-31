@@ -40,6 +40,16 @@ public class ClientStorage {
      * @throws IOException if loading fails
      */
     public void load() throws IOException {
+        loadServers();
+    }
+    
+    /**
+     * Loads or reloads the trusted servers list from disk.
+     * This allows hot-reloading the config without restarting the client.
+     * 
+     * @throws IOException if loading fails
+     */
+    public void loadServers() throws IOException {
         if (Files.exists(SavedStorage.getClientServersPath())) {
             ServersData data = SavedStorage.readJson(
                 SavedStorage.getClientServersPath(),
@@ -49,6 +59,21 @@ public class ClientStorage {
             LOGGER.info("Loaded {} trusted servers", trustedServers.size());
         } else {
             LOGGER.info("No existing trusted servers found");
+            trustedServers = new HashMap<>();
+        }
+    }
+    
+    /**
+     * Reloads the trusted servers list from disk.
+     * Convenience method that logs any errors instead of throwing.
+     * Safe to call from UI code.
+     */
+    public void reloadServers() {
+        try {
+            loadServers();
+            LOGGER.debug("Reloaded trusted servers from disk");
+        } catch (IOException e) {
+            LOGGER.error("Failed to reload trusted servers", e);
         }
     }
     

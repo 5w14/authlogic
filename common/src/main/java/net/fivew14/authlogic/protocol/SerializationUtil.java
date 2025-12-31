@@ -20,8 +20,29 @@ import java.security.spec.*;
  * - X25519 keys (FriendlyByteBuf only handles RSA)
  * - Private key serialization
  * - ByteBuffer-based operations for legacy code
+ * 
+ * SECURITY: All deserialization methods include bounds checking to prevent
+ * denial-of-service attacks via maliciously crafted packets.
  */
 public class SerializationUtil {
+    
+    /**
+     * Maximum allowed string length in bytes (32KB).
+     * Prevents memory exhaustion from malicious packets.
+     */
+    private static final int MAX_STRING_LENGTH = 32768;
+    
+    /**
+     * Maximum allowed byte array length (1MB).
+     * Prevents memory exhaustion from malicious packets.
+     */
+    private static final int MAX_BYTE_ARRAY_LENGTH = 1048576;
+    
+    /**
+     * Maximum allowed public key length (8KB).
+     * RSA-4096 keys are about 550 bytes, so this is very generous.
+     */
+    private static final int MAX_PUBLIC_KEY_LENGTH = 8192;
 
     // ==================== X25519 Key Serialization ====================
     // FriendlyByteBuf.readPublicKey() only handles RSA, so we need custom X25519 handling
@@ -169,9 +190,15 @@ public class SerializationUtil {
      * 
      * @param buffer ByteBuffer to read from
      * @return Deserialized string
+     * @throws IllegalArgumentException if string length exceeds maximum or is negative
      */
     public static String deserializeString(ByteBuffer buffer) {
         int length = buffer.getInt();
+        if (length < 0 || length > MAX_STRING_LENGTH) {
+            throw new IllegalArgumentException(
+                "String length out of bounds: " + length + " (max: " + MAX_STRING_LENGTH + ")"
+            );
+        }
         byte[] strBytes = new byte[length];
         buffer.get(strBytes);
         return new String(strBytes, java.nio.charset.StandardCharsets.UTF_8);
@@ -182,9 +209,15 @@ public class SerializationUtil {
      * 
      * @param buffer ByteBuffer to read from
      * @return Deserialized byte array
+     * @throws IllegalArgumentException if array length exceeds maximum or is negative
      */
     public static byte[] deserializeBytes(ByteBuffer buffer) {
         int length = buffer.getInt();
+        if (length < 0 || length > MAX_BYTE_ARRAY_LENGTH) {
+            throw new IllegalArgumentException(
+                "Byte array length out of bounds: " + length + " (max: " + MAX_BYTE_ARRAY_LENGTH + ")"
+            );
+        }
         byte[] data = new byte[length];
         buffer.get(data);
         return data;
@@ -196,9 +229,15 @@ public class SerializationUtil {
      * @param buffer ByteBuffer to read from
      * @param algorithm "RSA" or "X25519"
      * @return Public key
+     * @throws IllegalArgumentException if key length exceeds maximum or is negative
      */
     public static PublicKey readPublicKey(ByteBuffer buffer, String algorithm) {
         int length = buffer.getInt();
+        if (length < 0 || length > MAX_PUBLIC_KEY_LENGTH) {
+            throw new IllegalArgumentException(
+                "Public key length out of bounds: " + length + " (max: " + MAX_PUBLIC_KEY_LENGTH + ")"
+            );
+        }
         byte[] keyBytes = new byte[length];
         buffer.get(keyBytes);
         return deserializePublicKey(keyBytes, algorithm);

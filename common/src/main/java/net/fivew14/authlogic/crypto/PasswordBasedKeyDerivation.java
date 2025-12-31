@@ -2,24 +2,31 @@ package net.fivew14.authlogic.crypto;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
+import java.security.spec.RSAKeyGenParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.math.BigInteger;
 
 /**
  * Derives deterministic RSA keypairs from password hashes and server public keys.
  * This allows clients to regenerate the same keypair across sessions and server IP changes.
  * 
  * SECURITY: Never accepts plain-text passwords. All methods require pre-hashed passwords.
- * Uses PBKDF2-HMAC-SHA256 with 100,000 iterations to derive a seed from the password hash,
- * then uses that seed to deterministically generate an RSA keypair.
+ * Uses PBKDF2-HMAC-SHA256 with 100,000 iterations to derive a seed, then uses HKDF
+ * to expand the seed into deterministic random bytes for RSA key generation.
+ * 
+ * PORTABILITY: Uses a custom deterministic PRNG implementation to ensure consistent
+ * key generation across all JVM implementations.
  */
 public class PasswordBasedKeyDerivation {
     private static final String PBKDF2_ALGORITHM = "PBKDF2WithHmacSHA256";
     private static final int ITERATIONS = 100_000;
-    private static final int KEY_LENGTH_BITS = 256; // 32 bytes for seed
+    private static final int KEY_LENGTH_BITS = 256; // 32 bytes for initial seed
+    private static final int RSA_KEY_SIZE = 2048;
 
     /**
      * Hashes a password using SHA-256.
@@ -38,6 +45,8 @@ public class PasswordBasedKeyDerivation {
      * Same password hash + server key will always produce the same keypair.
      * 
      * SECURITY: This method expects a SHA-256 hash (64 hex chars), NOT a plain password.
+     * PORTABILITY: Uses a custom deterministic PRNG that produces identical results
+     * across all JVM implementations.
      * 
      * @param passwordHash SHA-256 hash of the password (64 hex characters)
      * @param serverPublicKey Server's RSA public key (used as salt)
@@ -58,11 +67,7 @@ public class PasswordBasedKeyDerivation {
             // Use server public key bytes as salt for PBKDF2
             byte[] salt = serverPublicKey.getEncoded();
             
-            // Convert password hash to bytes for PBKDF2 input
-            // Using the hash string as input ensures deterministic derivation
-            byte[] passwordHashBytes = passwordHash.getBytes(StandardCharsets.UTF_8);
-            
-            // Derive key material using PBKDF2
+            // Derive initial key material using PBKDF2
             SecretKeyFactory factory = SecretKeyFactory.getInstance(PBKDF2_ALGORITHM);
             KeySpec spec = new PBEKeySpec(
                 passwordHash.toCharArray(), 
@@ -72,13 +77,12 @@ public class PasswordBasedKeyDerivation {
             );
             byte[] derivedKey = factory.generateSecret(spec).getEncoded();
             
-            // Use derived key as seed for deterministic random number generator
-            SecureRandom seededRandom = SecureRandom.getInstance("SHA1PRNG");
-            seededRandom.setSeed(derivedKey);
+            // Use our portable deterministic PRNG
+            SecureRandom deterministicRandom = new DeterministicSecureRandom(derivedKey);
             
             // Generate RSA keypair deterministically
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-            keyPairGenerator.initialize(2048, seededRandom); // 2048-bit RSA
+            keyPairGenerator.initialize(RSA_KEY_SIZE, deterministicRandom);
             
             return keyPairGenerator.generateKeyPair();
             
@@ -119,5 +123,109 @@ public class PasswordBasedKeyDerivation {
             sb.append(String.format("%02x", b));
         }
         return sb.toString();
+    }
+    
+    /**
+     * A deterministic SecureRandom implementation that produces identical output
+     * across all JVM implementations given the same seed.
+     * 
+     * Uses HMAC-SHA256 in counter mode (similar to HKDF-Expand) to generate
+     * deterministic pseudo-random bytes.
+     * 
+     * SECURITY NOTE: This is ONLY for deterministic key derivation where we need
+     * portability. For general random number generation, use regular SecureRandom.
+     */
+    private static class DeterministicSecureRandom extends SecureRandom {
+        private final byte[] seed;
+        private long counter = 0;
+        private byte[] currentBlock = null;
+        private int blockOffset = 0;
+        
+        public DeterministicSecureRandom(byte[] seed) {
+            this.seed = seed.clone();
+        }
+        
+        @Override
+        public void nextBytes(byte[] bytes) {
+            int offset = 0;
+            while (offset < bytes.length) {
+                if (currentBlock == null || blockOffset >= currentBlock.length) {
+                    // Generate next block using HMAC-SHA256(seed, counter)
+                    currentBlock = generateBlock();
+                    blockOffset = 0;
+                }
+                
+                int toCopy = Math.min(bytes.length - offset, currentBlock.length - blockOffset);
+                System.arraycopy(currentBlock, blockOffset, bytes, offset, toCopy);
+                offset += toCopy;
+                blockOffset += toCopy;
+            }
+        }
+        
+        private byte[] generateBlock() {
+            try {
+                // Use HMAC-SHA256(seed, counter) to generate deterministic blocks
+                javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+                javax.crypto.spec.SecretKeySpec keySpec = new javax.crypto.spec.SecretKeySpec(seed, "HmacSHA256");
+                mac.init(keySpec);
+                
+                // Include counter in the input
+                ByteBuffer counterBuffer = ByteBuffer.allocate(8);
+                counterBuffer.putLong(counter++);
+                mac.update(counterBuffer.array());
+                
+                return mac.doFinal();
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to generate deterministic random block", e);
+            }
+        }
+        
+        @Override
+        public int nextInt() {
+            byte[] bytes = new byte[4];
+            nextBytes(bytes);
+            return ByteBuffer.wrap(bytes).getInt();
+        }
+        
+        @Override
+        public long nextLong() {
+            byte[] bytes = new byte[8];
+            nextBytes(bytes);
+            return ByteBuffer.wrap(bytes).getLong();
+        }
+        
+        @Override
+        public boolean nextBoolean() {
+            byte[] bytes = new byte[1];
+            nextBytes(bytes);
+            return (bytes[0] & 1) != 0;
+        }
+        
+        @Override
+        public float nextFloat() {
+            return (nextInt() >>> 8) / ((float) (1 << 24));
+        }
+        
+        @Override
+        public double nextDouble() {
+            return (nextLong() >>> 11) / (double) (1L << 53);
+        }
+        
+        @Override
+        public void setSeed(long seed) {
+            // Ignore - we use our own seeding mechanism
+        }
+        
+        @Override
+        public void setSeed(byte[] seed) {
+            // Ignore - we use our own seeding mechanism
+        }
+        
+        @Override
+        public byte[] generateSeed(int numBytes) {
+            byte[] bytes = new byte[numBytes];
+            nextBytes(bytes);
+            return bytes;
+        }
     }
 }

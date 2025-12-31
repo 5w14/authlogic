@@ -12,6 +12,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class MultiplayerScreenMixin {
     @Inject(at = @At("RETURN"), method = "init", cancellable = true)
     public void authlogic$showMultiplayerPasswordSetup(CallbackInfo ci) {
+        // Reload trusted servers from disk in case config was edited externally
+        AuthLogicClient.getStorage().reloadServers();
+        
         if (AuthLogicClient.openSetupMultiplayerScreen((Screen) (Object) this))
             ci.cancel();
     }

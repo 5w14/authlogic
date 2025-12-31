@@ -34,13 +34,6 @@ public class AuthLogicClient {
         // Set storage for networking and auth handler
         ClientNetworking.setStorage(clientStorage);
         ClientAuthHandler.setStorage(clientStorage);
-        
-        // Set up password provider - choose one:
-        // 1. For testing with hardcoded password:
-         ClientAuthHandler.setPasswordProvider(new ClientAuthHandler.ConstantPasswordProvider());
-        
-        // 2. For environment variable (production-like):
-//        ClientAuthHandler.setPasswordProvider(new ClientAuthHandler.EnvironmentPasswordProvider());
 
         ClientLifecycleEvent.CLIENT_STARTED.register(AuthLogicClient::onClientStarted);
 
