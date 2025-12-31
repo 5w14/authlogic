@@ -4,7 +4,7 @@
   "authlogic.error.server_signature_invalid.title": "Ошибка проверки сервера",
   "authlogic.error.server_key_mismatch": "Идентификатор сервера поменялся с последнего подключения.",
   "authlogic.error.server_key_mismatch.title": "Проблема безопасности: Сменился ключ сервера",
-  "authlogic.error.server_key_mismatch.detail": "Что это может значить:\n• Сервер был переустановлен или сменился администратор\n• Кто-то пытается перехватить ваше соединение\n\nЕсли вы доверяете этому изменению, удалите ключ сервера из конфигурации AuthLogic.",
+  "authlogic.error.server_key_mismatch.detail": "Что это может значить:\n• Сервер был переустановлен или сменился администратор\n• Кто-то пытается перехватить ваше соединение\n\nЕсли вы доверяете этому изменению,\nудалите ключ сервера из конфигурации AuthLogic.",
   "authlogic.error.server_key_mismatch.expected": "Ожидаемый ключ: %s",
   "authlogic.error.server_key_mismatch.received": "Полученный ключ: %s",
   "authlogic.error.mojang_certificate_missing": "Для онлайн-режима требуется лицензионный аккаунт Minecraft.",
