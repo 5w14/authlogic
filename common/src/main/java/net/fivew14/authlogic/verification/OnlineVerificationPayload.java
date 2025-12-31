@@ -81,7 +81,7 @@ public record OnlineVerificationPayload(
             
             // 2. Verify Mojang signature on the public key
             if (!verifyMojangSignature()) {
-                throw new VerificationException("Invalid Mojang signature - key not signed by Mojang");
+                throw new VerificationException("Invalid Mojang signature. Restart your game and/or launcher.");
             }
             LOGGER.debug("Mojang signature verified for {}", playerUUID);
             
