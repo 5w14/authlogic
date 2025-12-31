@@ -1,0 +1,32 @@
+{
+  "authlogic.error.password_not_hashed": "Internal error: Password was not properly hashed before authentication.",
+  
+  "authlogic.error.server_signature_invalid": "Could not verify the server's identity. The server's signature is invalid.",
+  "authlogic.error.server_signature_invalid.title": "Server Verification Failed",
+  
+  "authlogic.error.server_key_mismatch": "The server's identity key has changed since you last connected!",
+  "authlogic.error.server_key_mismatch.title": "Security Warning: Server Key Changed",
+  "authlogic.error.server_key_mismatch.detail": "This could mean:\n• The server was reinstalled or changed ownership\n• Someone is attempting to intercept your connection (MITM attack)\n\nIf you trust this change, delete the server's key from your AuthLogic config.",
+  "authlogic.error.server_key_mismatch.expected": "Expected key: %s",
+  "authlogic.error.server_key_mismatch.received": "Received key: %s",
+  
+  "authlogic.error.mojang_certificate_missing": "Online mode authentication requires a valid Minecraft account.",
+  "authlogic.error.mojang_certificate_missing.title": "Mojang Certificate Required",
+  "authlogic.error.mojang_certificate_missing.detail": "Make sure you are logged into a legitimate Minecraft account.",
+  
+  "authlogic.error.mojang_certificate_expired": "Your Mojang player certificate has expired.",
+  "authlogic.error.mojang_certificate_expired.title": "Certificate Expired",
+  "authlogic.error.mojang_certificate_expired.detail": "Please restart the game to refresh your certificate.",
+  
+  "authlogic.error.verification_type_not_registered": "The server requested an unknown authentication method: %s",
+  
+  "authlogic.error.internal_client": "An internal error occurred during authentication. Please try again.",
+  
+  "authlogic.screen.setup_password.title": "Setup AuthLogic Password",
+  "authlogic.screen.setup_password.description": "This password will be used to generate a unique key per server.",
+  "authlogic.screen.setup_password.warning": "Warning: You cannot restore this password later!",
+  "authlogic.screen.setup_password.button.save": "Save",
+  "authlogic.screen.setup_password.button.cancel": "Cancel",
+  "authlogic.screen.setup_password.error.too_short": "Password must be at least 4 characters.",
+  "authlogic.screen.setup_password.error.save_failed": "Failed to save password: %s"
+}

@@ -116,11 +116,11 @@ public final class S2CLoginQuery implements IntSupplier {
             
         } catch (VerificationException e) {
             LOGGER.error("Authentication failed: {}", e.getMessage());
-            disconnectWithError(ctx.get(), "Authentication failed: " + e.getMessage());
+            disconnectWithError(ctx.get(), e.getVisualError());
             ctx.get().setPacketHandled(false);
         } catch (Exception e) {
             LOGGER.error("Unexpected error during authentication", e);
-            disconnectWithError(ctx.get(), "Authentication error: " + e.getMessage());
+            disconnectWithError(ctx.get(), Component.literal("Authentification errored with the following message: " + e));
             ctx.get().setPacketHandled(false);
         }
     }
@@ -146,9 +146,9 @@ public final class S2CLoginQuery implements IntSupplier {
      * @param ctx Network event context
      * @param message Error message to display
      */
-    private static void disconnectWithError(NetworkEvent.Context ctx, String message) {
+    private static void disconnectWithError(NetworkEvent.Context ctx, Component message) {
         try {
-            ctx.getNetworkManager().disconnect(Component.literal(message));
+            ctx.getNetworkManager().disconnect(message);
         } catch (Exception e) {
             LOGGER.error("Failed to disconnect client", e);
         }

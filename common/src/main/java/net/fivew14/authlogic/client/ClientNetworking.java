@@ -2,6 +2,7 @@ package net.fivew14.authlogic.client;
 
 import com.mojang.logging.LogUtils;
 import io.netty.buffer.Unpooled;
+import net.fivew14.authlogic.crypto.Hasher;
 import net.fivew14.authlogic.crypto.KeysProvider;
 import net.fivew14.authlogic.crypto.OptionalKeyPair;
 import net.fivew14.authlogic.protocol.ClientResponseMessage;
@@ -12,14 +13,17 @@ import net.fivew14.authlogic.verification.OnlineVerificationPayload;
 import net.fivew14.authlogic.verification.VerificationCodec;
 import net.fivew14.authlogic.verification.VerificationException;
 import net.fivew14.authlogic.verification.VerificationRegistry;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.ProfileKeyPair;
 import org.slf4j.Logger;
 
 import java.security.KeyPair;
 import java.security.PublicKey;
+import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -164,8 +168,8 @@ public class ClientNetworking {
             // Validate that we received a hash, not a plain password
             if (passwordHash == null || passwordHash.length() != 64) {
                 throw new VerificationException(
-                    "Password must be pre-hashed using ClientStorage.hashPassword(). " +
-                    "Never pass plain passwords to this method."
+                    "Password must be pre-hashed using ClientStorage.hashPassword()",
+                    Component.translatable("authlogic.error.password_not_hashed")
                 );
             }
             
@@ -174,7 +178,14 @@ public class ClientNetworking {
             
             // 2. Verify server signature
             if (!challenge.verify()) {
-                throw new VerificationException("Invalid server signature - server authentication failed!");
+                throw new VerificationException(
+                    "Invalid server signature - server authentication failed!",
+                    Component.translatable("authlogic.error.server_signature_invalid.title")
+                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                        .append(Component.literal("\n\n"))
+                        .append(Component.translatable("authlogic.error.server_signature_invalid")
+                            .withStyle(ChatFormatting.RESET))
+                );
             }
             
             LOGGER.debug("Server challenge signature verified");
@@ -184,9 +195,27 @@ public class ClientNetworking {
             if (trustedKey.isPresent()) {
                 // Server was seen before - verify it's the same key
                 if (!trustedKey.get().equals(challenge.serverPublicKey)) {
+                    String expectedHash = Base64.getEncoder().encodeToString(
+                        Hasher.sha256(trustedKey.get().getEncoded())).substring(0, 16) + "...";
+                    String receivedHash = Base64.getEncoder().encodeToString(
+                        Hasher.sha256(challenge.serverPublicKey.getEncoded())).substring(0, 16) + "...";
+                    
                     throw new VerificationException(
-                        "Server public key mismatch! Possible MITM attack. " +
-                        "Expected: " + trustedKey.get() + ", Got: " + challenge.serverPublicKey
+                        "Server public key mismatch! Possible MITM attack.",
+                        Component.translatable("authlogic.error.server_key_mismatch.title")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                            .append(Component.literal("\n\n"))
+                            .append(Component.translatable("authlogic.error.server_key_mismatch")
+                                .withStyle(ChatFormatting.RESET, ChatFormatting.YELLOW))
+                            .append(Component.literal("\n\n"))
+                            .append(Component.translatable("authlogic.error.server_key_mismatch.detail")
+                                .withStyle(ChatFormatting.RESET, ChatFormatting.GRAY))
+                            .append(Component.literal("\n\n"))
+                            .append(Component.translatable("authlogic.error.server_key_mismatch.expected", expectedHash)
+                                .withStyle(ChatFormatting.RESET))
+                            .append(Component.literal("\n"))
+                            .append(Component.translatable("authlogic.error.server_key_mismatch.received", receivedHash)
+                                .withStyle(ChatFormatting.RESET))
                     );
                 }
                 LOGGER.debug("Server key matches trusted key");
@@ -219,25 +248,39 @@ public class ClientNetworking {
             // 7. Create payload based on mode
             Object payload;
             ResourceLocation verificationType;
-            
+
             if (onlineMode) {
                 // Validate Mojang certificate is present and valid
                 if (mojangCertificate.isEmpty()) {
                     throw new VerificationException(
-                        "Online mode requires Mojang player certificate. " +
-                        "Make sure you are logged into a valid Minecraft account."
+                        "Online mode requires Mojang player certificate",
+                        Component.translatable("authlogic.error.mojang_certificate_missing.title")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                            .append(Component.literal("\n\n"))
+                            .append(Component.translatable("authlogic.error.mojang_certificate_missing")
+                                .withStyle(ChatFormatting.RESET))
+                            .append(Component.literal("\n"))
+                            .append(Component.translatable("authlogic.error.mojang_certificate_missing.detail")
+                                .withStyle(ChatFormatting.GRAY))
                     );
                 }
-                
+
                 MojangCertificateData certData = mojangCertificate.get();
-                
+
                 if (!certData.isValid()) {
                     throw new VerificationException(
-                        "Mojang player certificate has expired. " +
-                        "Please restart the game to refresh your certificate."
+                        "Mojang player certificate has expired",
+                        Component.translatable("authlogic.error.mojang_certificate_expired.title")
+                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                            .append(Component.literal("\n\n"))
+                            .append(Component.translatable("authlogic.error.mojang_certificate_expired")
+                                .withStyle(ChatFormatting.RESET))
+                            .append(Component.literal("\n"))
+                            .append(Component.translatable("authlogic.error.mojang_certificate_expired.detail")
+                                .withStyle(ChatFormatting.GRAY))
                     );
                 }
-                
+
                 LOGGER.debug("Using Mojang certificate for online mode authentication");
                 
                 OnlineVerificationPayload online = OnlineVerificationPayload.create(
@@ -271,7 +314,10 @@ public class ClientNetworking {
             
             // 8. Encrypt payload
             if (!VerificationRegistry.isRegistered(verificationType)) {
-                throw new VerificationException("Verification type not registered: " + verificationType);
+                throw new VerificationException(
+                    "Verification type not registered: " + verificationType,
+                    Component.translatable("authlogic.error.verification_type_not_registered", verificationType.toString())
+                );
             }
             
             VerificationCodec codec = VerificationRegistry.get(verificationType);

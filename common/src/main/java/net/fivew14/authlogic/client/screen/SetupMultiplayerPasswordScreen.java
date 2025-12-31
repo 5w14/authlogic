@@ -17,7 +17,7 @@ public class SetupMultiplayerPasswordScreen extends Screen {
     EditBox editBox;
 
     public SetupMultiplayerPasswordScreen(Screen returnTo) {
-        super(Component.literal("AuthLogic"));
+        super(Component.translatable("authlogic.screen.setup_password.title"));
         this.returnTo = returnTo;
     }
 
@@ -28,12 +28,12 @@ public class SetupMultiplayerPasswordScreen extends Screen {
         int width = 200;
 
         editBox = addRenderableWidget(new EditBox(this.minecraft.font, this.width / 2 - width / 2,
-                this.height / 2, width, 20, Component.literal("Password")));
+                this.height / 2, width, 20, Component.translatable("authlogic.screen.setup_password.title")));
 
-        addRenderableWidget(new Button.Builder(Component.literal("Save"), this::storePassword)
+        addRenderableWidget(new Button.Builder(Component.translatable("authlogic.screen.setup_password.button.save"), this::storePassword)
                 .bounds(this.width / 2 - width / 2, this.height - 60, width, 20).build());
         
-        addRenderableWidget(new Button.Builder(Component.literal("Cancel"), (b) -> this.onClose())
+        addRenderableWidget(new Button.Builder(Component.translatable("authlogic.screen.setup_password.button.cancel"), (b) -> this.onClose())
                 .bounds(this.width / 2 - width / 2, this.height - 35, width, 20).build());
 
 
@@ -43,7 +43,8 @@ public class SetupMultiplayerPasswordScreen extends Screen {
         String password = editBox.getValue();
 
         if (password.length() < 4) {
-            saveError = Component.literal("Make your password a bit longer please :)");
+            saveError = Component.translatable("authlogic.screen.setup_password.error.too_short")
+                    .withStyle(ChatFormatting.RED);
             return;
         }
 
@@ -53,7 +54,8 @@ public class SetupMultiplayerPasswordScreen extends Screen {
             AuthLogicClient.getStorage().savePasswordHashToDisk(passwordHash);
             AuthLogicClient.getStorage().save();
         } catch (Exception e) {
-            saveError = Component.literal("Failed to save password: " + e.getMessage());
+            saveError = Component.translatable("authlogic.screen.setup_password.error.save_failed", e.getMessage())
+                    .withStyle(ChatFormatting.RED);
             return;
         }
 
@@ -68,20 +70,20 @@ public class SetupMultiplayerPasswordScreen extends Screen {
     public void render(GuiGraphics guiGraphics, int i, int j, float f) {
         renderBackground(guiGraphics);
 
-        guiGraphics.drawCenteredString(this.minecraft.font, Component.literal("Setup AuthLogic password").withStyle(ChatFormatting.BOLD),
+        guiGraphics.drawCenteredString(this.minecraft.font, 
+                Component.translatable("authlogic.screen.setup_password.title").withStyle(ChatFormatting.BOLD),
                 this.width / 2, this.height / 2 - 45, 0xFFFFFFFF);
 
-        guiGraphics.drawCenteredString(this.minecraft.font, Component.literal("This password will be used to generate a unique key per server."),
+        guiGraphics.drawCenteredString(this.minecraft.font, 
+                Component.translatable("authlogic.screen.setup_password.description"),
                 this.width / 2, this.height / 2 - 25, 0xFFFFFFFF);
 
-        guiGraphics.drawCenteredString(this.minecraft.font, Component.literal("Warning: You cannot restore this password later!").withStyle(ChatFormatting.ITALIC, ChatFormatting.RED),
+        guiGraphics.drawCenteredString(this.minecraft.font, 
+                Component.translatable("authlogic.screen.setup_password.warning").withStyle(ChatFormatting.ITALIC, ChatFormatting.RED),
                 this.width / 2, this.height / 2 + 35, 0xFFFFFFFF);
 
         guiGraphics.drawCenteredString(this.minecraft.font, saveError,
                 this.width / 2, this.height - 75, 0xFFFFFFFF);
-
-//        addRenderableWidget(new Button.Builder(Component.literal("Save"), this::storePassword)
-//                .bounds(this.width / 2 - width / 2, this.height - 60, width, 20).build());
 
         super.render(guiGraphics, i, j, f);
     }

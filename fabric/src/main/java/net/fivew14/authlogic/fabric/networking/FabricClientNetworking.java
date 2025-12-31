@@ -11,6 +11,7 @@ import net.fivew14.authlogic.verification.VerificationException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -40,6 +41,7 @@ public class FabricClientNetworking {
                 return AuthLogicClient.handleServerChallenge(buf, serverAddress);
             } catch (VerificationException e) {
                 LOGGER.error("Authentication failed: {}", e.getMessage());
+                ((ClientHandshakeAccessor)handler).authlogic$getConnection().disconnect(e.getVisualError());
                 return null;
             } catch (Exception e) {
                 LOGGER.error("Unexpected error during authentication", e);
