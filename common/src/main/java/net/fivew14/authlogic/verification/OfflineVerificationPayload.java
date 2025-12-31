@@ -88,7 +88,7 @@ public record OfflineVerificationPayload(
             }
             
             LOGGER.debug("Offline verification successful for {}", username);
-            return VerificationResult.success(playerUUID, username, clientPublicKey);
+            return VerificationResult.successOffline(playerUUID, username, clientPublicKey);
             
         } catch (VerificationException e) {
             throw e;

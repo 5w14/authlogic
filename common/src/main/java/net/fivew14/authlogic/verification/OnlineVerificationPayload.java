@@ -118,7 +118,7 @@ public record OnlineVerificationPayload(
             }
             
             LOGGER.debug("Online verification successful for {} ({})", username, playerUUID);
-            return VerificationResult.success(playerUUID, username, clientPublicKey);
+            return VerificationResult.successOnline(playerUUID, username, clientPublicKey);
             
         } catch (VerificationException e) {
             throw e;

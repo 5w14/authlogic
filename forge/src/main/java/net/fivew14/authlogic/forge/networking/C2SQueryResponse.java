@@ -41,6 +41,13 @@ public final class C2SQueryResponse implements IntSupplier {
     public C2SQueryResponse(FriendlyByteBuf payload) {
         this.payload = payload;
     }
+    
+    /**
+     * Checks if this is an empty/skip response (for local connections).
+     */
+    public boolean isEmpty() {
+        return payload == null || payload.readableBytes() == 0;
+    }
 
     public int getLoginIndex() {
         return loginIndex;
@@ -51,18 +58,33 @@ public final class C2SQueryResponse implements IntSupplier {
     }
 
     public static void encode(C2SQueryResponse msg, FriendlyByteBuf buf) {
-        buf.writeVarInt(msg.payload.readableBytes());
-        buf.writeBytes(msg.payload, msg.payload.readerIndex(), msg.payload.readableBytes());
+        if (msg.isEmpty()) {
+            buf.writeVarInt(0); // Empty payload marker
+        } else {
+            buf.writeVarInt(msg.payload.readableBytes());
+            buf.writeBytes(msg.payload, msg.payload.readerIndex(), msg.payload.readableBytes());
+        }
     }
 
     public static C2SQueryResponse decode(FriendlyByteBuf buf) {
         int len = buf.readVarInt();
+        if (len == 0) {
+            return new C2SQueryResponse(null); // Empty/skip response
+        }
         FriendlyByteBuf payload = new FriendlyByteBuf(buf.readBytes(len));
         return new C2SQueryResponse(payload);
     }
 
     public static void handle(HandshakeHandler h, C2SQueryResponse msg, Supplier<NetworkEvent.Context> ctx) {
+        LOGGER.info("C2SQueryResponse.handle() called, isEmpty={}", msg.isEmpty());
         var networkManager = ctx.get().getNetworkManager();
+        
+        // Skip authentication for empty responses (local/integrated server)
+        if (msg.isEmpty()) {
+            LOGGER.debug("Received empty auth response, skipping authentication (local connection)");
+            ctx.get().setPacketHandled(true);
+            return;
+        }
         
         try {
             // Get the expected username from Minecraft's login handler game profile via mixin accessor
@@ -73,6 +95,8 @@ public final class C2SQueryResponse implements IntSupplier {
                     expectedUsername = profile.getName();
                 }
             }
+            
+            LOGGER.info("Validating client response for expected username: {}", expectedUsername);
             
             // Validate client response - correlation is by server nonce in the response
             ServerNetworking.validateClientResponse(msg.payload, expectedUsername);

@@ -7,7 +7,6 @@ import net.fivew14.authlogic.crypto.OptionalKeyPair;
 import net.fivew14.authlogic.protocol.ClientResponseMessage;
 import net.fivew14.authlogic.protocol.ServerChallengeMessage;
 import net.fivew14.authlogic.server.state.CommonAuthState;
-import net.fivew14.authlogic.server.state.FinishedAuthState;
 import net.fivew14.authlogic.server.state.InProgressAuthState;
 import net.fivew14.authlogic.verification.VerificationCodec;
 import net.fivew14.authlogic.verification.VerificationException;
@@ -103,6 +102,9 @@ public class ServerNetworking {
      * Uses the echoed server nonce to find the matching pending authentication state.
      * Throws VerificationException on any failure - caller should disconnect immediately.
      * 
+     * NOTE: This method always removes the auth state from ServerAuthState.STATE,
+     * whether authentication succeeds or fails. This prevents memory leaks.
+     * 
      * @param buf FriendlyByteBuf containing client response
      * @param expectedUsername The username from Minecraft's login flow (used for verification)
      * @throws VerificationException if verification fails
@@ -111,12 +113,18 @@ public class ServerNetworking {
         FriendlyByteBuf buf,
         String expectedUsername
     ) throws VerificationException {
+        long serverNonce = 0;
+        boolean nonceExtracted = false;
+        
         try {
             // 1. Deserialize client response
             ClientResponseMessage response = ClientResponseMessage.fromBuf(buf);
+            serverNonce = response.serverNonce;
+            nonceExtracted = true;
             
-            // 2. Retrieve stored auth state using the echoed server nonce
-            CommonAuthState state = ServerAuthState.STATE.get(response.serverNonce);
+            // 2. Retrieve and REMOVE stored auth state using the echoed server nonce
+            // We remove it immediately to prevent replay attacks and memory leaks
+            CommonAuthState state = ServerAuthState.STATE.remove(response.serverNonce);
             if (state == null) {
                 throw new VerificationException("No pending authentication for server nonce: " + response.serverNonce);
             }
@@ -157,55 +165,52 @@ public class ServerNetworking {
                 );
             }
             
-            // 7. TOFU check - verify player's public key matches previously stored key
-            java.util.Optional<java.security.PublicKey> storedKey = getStorage().getPlayerKey(result.playerUUID);
-            if (storedKey.isPresent()) {
-                // Player was seen before - verify it's the same key
-                if (!storedKey.get().equals(result.clientPublicKey)) {
-                    throw new VerificationException(
-                        "Player public key mismatch for " + result.username + " (" + result.playerUUID + ")! " +
-                        "This could indicate a compromised account or password change. " +
-                        "Server admin must manually remove the old key to allow re-registration."
-                    );
+            // 7. TOFU check - only for offline mode (password-derived keys)
+            // Online mode keys are Mojang certificates that can be regenerated at any time,
+            // so we don't store them for TOFU verification
+            if (result.shouldStoreKeyForTOFU) {
+                java.util.Optional<java.security.PublicKey> storedKey = getStorage().getPlayerKey(result.playerUUID);
+                if (storedKey.isPresent()) {
+                    // Player was seen before - verify it's the same key
+                    if (!storedKey.get().equals(result.clientPublicKey)) {
+                        throw new VerificationException(
+                            "Player public key mismatch for " + result.username + " (" + result.playerUUID + ")! " +
+                            "This could indicate a compromised account or password change. " +
+                            "Server admin must manually remove the old key to allow re-registration."
+                        );
+                    }
+                    LOGGER.debug("Player key matches trusted key for {}", result.username);
+                } else {
+                    // First time connecting - trust on first use
+                    getStorage().storePlayerKey(result.playerUUID, result.clientPublicKey);
+                    getStorage().save();
+                    LOGGER.info("Trusting new player (offline mode): {} ({})", result.username, result.playerUUID);
                 }
-                LOGGER.debug("Player key matches trusted key for {}", result.username);
             } else {
-                // First time connecting - trust on first use
-                getStorage().storePlayerKey(result.playerUUID, result.clientPublicKey);
-                getStorage().save();
-                LOGGER.info("Trusting new player: {} ({})", result.username, result.playerUUID);
+                LOGGER.debug("Skipping TOFU for online mode user {} ({})", result.username, result.playerUUID);
             }
             
-            // 8. Update state with verified data
-            state.playerUUID = result.playerUUID;
-            state.username = result.username;
-            state.clientConstPublicKey = result.clientPublicKey;
-            
-            // 9. Convert to FinishedAuthState
-            FinishedAuthState finished = new FinishedAuthState();
-            finished.playerUUID = state.playerUUID;
-            finished.username = state.username;
-            finished.serverNonce = state.serverNonce;
-            finished.clientNonce = state.clientNonce;
-            finished.serverTemporaryKeys = state.serverTemporaryKeys;
-            finished.clientTemporaryKeys = state.clientTemporaryKeys;
-            finished.clientConstPublicKey = state.clientConstPublicKey;
-            finished.serverConstPublicKey = state.serverConstPublicKey;
-            
-            // 10. Replace in-progress state with finished state
-            ServerAuthState.STATE.put(response.serverNonce, finished);
-            
-            // 11. Mark player as authenticated for join verification
+            // 8. Mark player as authenticated for join verification
+            // Note: We no longer store the finished state - it's not needed
             ServerAuthState.markAuthenticated(result.username);
             
             LOGGER.info("Successfully authenticated player {} ({})", result.username, result.playerUUID);
             
         } catch (VerificationException e) {
-            // Re-throw verification exceptions directly
+            // State was already removed at step 2, or nonce wasn't extracted yet
+            // If we extracted the nonce but failed before removal, clean up now
+            if (nonceExtracted && ServerAuthState.STATE.containsKey(serverNonce)) {
+                ServerAuthState.STATE.remove(serverNonce);
+                LOGGER.debug("Cleaned up auth state for nonce {} after verification failure", serverNonce);
+            }
             LOGGER.warn("Client authentication failed: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
-            // Wrap other exceptions
+            // Same cleanup for unexpected exceptions
+            if (nonceExtracted && ServerAuthState.STATE.containsKey(serverNonce)) {
+                ServerAuthState.STATE.remove(serverNonce);
+                LOGGER.debug("Cleaned up auth state for nonce {} after unexpected error", serverNonce);
+            }
             LOGGER.error("Unexpected error during client validation", e);
             throw new VerificationException("Internal server error during authentication", e);
         }

@@ -188,11 +188,14 @@ public class AuthLogicDedicated {
     private static void onPlayerJoin(ServerPlayer player) {
         // Skip if not active (online-mode server) or singleplayer
         if (!isActive || server == null || server.isSingleplayer()) {
+            LOGGER.debug("Skipping auth check for player join (isActive={}, server={}, singleplayer={})",
+                isActive, server != null, server != null && server.isSingleplayer());
             return;
         }
         
         // Check if player was authenticated during login (by username)
         String username = player.getName().getString();
+        LOGGER.info("Player '{}' joining, checking authentication status", username);
         boolean wasAuthenticated = ServerAuthState.consumeAuthentication(username);
         
         if (!wasAuthenticated) {
@@ -202,7 +205,7 @@ public class AuthLogicDedicated {
                 "Authentication required. Please install the AuthLogic mod to play on this server."
             ));
         } else {
-            LOGGER.debug("Player {} ({}) authentication verified on join",
+            LOGGER.info("Player {} ({}) authentication verified on join",
                 username, player.getUUID());
         }
     }

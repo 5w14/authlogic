@@ -90,7 +90,9 @@ public class ServerAuthState {
      * @param username The authenticated player's username
      */
     public static void markAuthenticated(String username) {
+        LOGGER.info("Marking player '{}' as authenticated", username);
         AUTHENTICATED_PLAYERS.put(username, new AuthenticatedPlayer(username, System.currentTimeMillis()));
+        LOGGER.debug("AUTHENTICATED_PLAYERS now contains {} entries", AUTHENTICATED_PLAYERS.size());
     }
     
     /**
@@ -102,7 +104,10 @@ public class ServerAuthState {
      * @return true if the player was authenticated, false otherwise
      */
     public static boolean consumeAuthentication(String username) {
-        return AUTHENTICATED_PLAYERS.remove(username) != null;
+        LOGGER.debug("Consuming authentication for '{}', current entries: {}", username, AUTHENTICATED_PLAYERS.keySet());
+        boolean result = AUTHENTICATED_PLAYERS.remove(username) != null;
+        LOGGER.info("consumeAuthentication('{}') = {}", username, result);
+        return result;
     }
     
     /**

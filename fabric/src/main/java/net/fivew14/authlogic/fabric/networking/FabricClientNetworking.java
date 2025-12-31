@@ -6,6 +6,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
 import net.fivew14.authlogic.AuthLogic;
 import net.fivew14.authlogic.client.AuthLogicClient;
+import net.fivew14.authlogic.mixin.ClientHandshakeAccessor;
 import net.fivew14.authlogic.verification.VerificationException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
@@ -29,13 +30,13 @@ public class FabricClientNetworking {
 
     private static CompletableFuture<@Nullable FriendlyByteBuf> handleClient(
         Minecraft minecraft, 
-        ClientHandshakePacketListenerImpl handler, 
+        ClientHandshakePacketListenerImpl handler,
         FriendlyByteBuf buf, 
         Consumer<GenericFutureListener<? extends Future<? super Void>>> consumer
     ) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                String serverAddress = getServerAddress();
+                String serverAddress = getServerAddress(handler);
                 return AuthLogicClient.handleServerChallenge(buf, serverAddress);
             } catch (VerificationException e) {
                 LOGGER.error("Authentication failed: {}", e.getMessage());
@@ -52,14 +53,18 @@ public class FabricClientNetworking {
      * 
      * @return Server address (IP:port or hostname)
      */
-    private static String getServerAddress() {
+    private static String getServerAddress(ClientHandshakePacketListenerImpl handshake) {
         try {
             // Try to get server info from Minecraft instance
-            var serverData = Minecraft.getInstance().getCurrentServer();
-            if (serverData != null) {
+            var serverData = ((ClientHandshakeAccessor)handshake).authlogic$getServerData();
+
+            if (serverData == null)
+                serverData = Minecraft.getInstance().getCurrentServer();
+            if (serverData != null)
                 return serverData.ip;
-            }
-            return "unknown";
+
+            var address = ((ClientHandshakeAccessor) handshake).authlogic$getConnection().getRemoteAddress();
+            return address.toString();
         } catch (Exception e) {
             LOGGER.warn("Could not determine server address, using default", e);
             return "unknown";
