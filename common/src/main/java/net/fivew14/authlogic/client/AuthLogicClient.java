@@ -43,9 +43,17 @@ public class AuthLogicClient {
 //        ClientAuthHandler.setPasswordProvider(new ClientAuthHandler.EnvironmentPasswordProvider());
 
         ClientLifecycleEvent.CLIENT_STARTED.register(AuthLogicClient::onClientStarted);
+
+        if (Minecraft.getInstance().getProfileKeyPairManager() != null) {
+            onClientStarted(Minecraft.getInstance());
+        }
     }
 
+    static boolean hasStartedSetup;
     private static void onClientStarted(Minecraft minecraft) {
+        if (hasStartedSetup) return;
+        hasStartedSetup = true;
+
         LOGGER.info("Client started, checking profile key pair");
         minecraft.getProfileKeyPairManager().prepareKeyPair().whenComplete((keyPairOpt, e) -> {
             if (e != null || keyPairOpt.isEmpty()) {
@@ -56,11 +64,12 @@ public class AuthLogicClient {
                 LOGGER.info("Client is in online mode (profile key pair available)");
                 onlineMode = true;
                 
-                // Cache the certificate data
+                // Cache the certificate data including private key
                 var keyPair = keyPairOpt.get();
                 var publicKeyData = keyPair.publicKey().data();
                 cachedCertificate = Optional.of(MojangCertificateData.of(
                     publicKeyData.key(),
+                    keyPair.privateKey(),
                     publicKeyData.keySignature(),
                     publicKeyData.expiresAt().toEpochMilli()
                 ));
@@ -142,7 +151,12 @@ public class AuthLogicClient {
             useOnlineMode = false;
         }
         
-        String passwordHash = ClientAuthHandler.getPasswordHash(serverAddress);
+        // Password hash is only needed for offline mode
+        // Online mode uses Mojang certificate keys instead
+        String passwordHash = null;
+        if (!useOnlineMode) {
+            passwordHash = ClientAuthHandler.getPasswordHash(serverAddress);
+        }
         
         FriendlyByteBuf response = ClientNetworking.handleLoginQuery(
             challengeBuf,

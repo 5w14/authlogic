@@ -22,6 +22,7 @@ import net.minecraft.world.entity.player.ProfileKeyPair;
 import org.slf4j.Logger;
 
 import java.security.KeyPair;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Base64;
 import java.util.Optional;
@@ -39,6 +40,7 @@ public class ClientNetworking {
      */
     public record MojangCertificateData(
         PublicKey publicKey,           // Player's RSA public key from Mojang
+        PrivateKey privateKey,         // Player's RSA private key (for signing)
         byte[] keySignature,           // Mojang's signature on the public key
         long expiresAtMillis           // Expiration timestamp in milliseconds
     ) {
@@ -47,12 +49,13 @@ public class ClientNetworking {
          * This method should be called by platform-specific code (Fabric/Forge).
          * 
          * @param publicKey RSA public key
+         * @param privateKey RSA private key
          * @param keySignature Mojang's signature
          * @param expiresAt Expiration timestamp
          * @return Certificate data
          */
-        public static MojangCertificateData of(PublicKey publicKey, byte[] keySignature, long expiresAt) {
-            return new MojangCertificateData(publicKey, keySignature, expiresAt);
+        public static MojangCertificateData of(PublicKey publicKey, PrivateKey privateKey, byte[] keySignature, long expiresAt) {
+            return new MojangCertificateData(publicKey, privateKey, keySignature, expiresAt);
         }
         
         /**
@@ -121,11 +124,13 @@ public class ClientNetworking {
                 LOGGER.warn("ProfileKeyPair is due for refresh, attempting to use it anyway");
             }
             
-            // Extract data from the profile public key
+            // Extract data from the profile public key and private key
             var publicKeyData = keyPair.publicKey().data();
+            PrivateKey privateKey = keyPair.privateKey();
             
             MojangCertificateData certData = MojangCertificateData.of(
                 publicKeyData.key(),
+                privateKey,
                 publicKeyData.keySignature(),
                 publicKeyData.expiresAt().toEpochMilli()
             );
@@ -165,12 +170,15 @@ public class ClientNetworking {
         Optional<MojangCertificateData> mojangCertificate
     ) throws VerificationException {
         try {
-            // Validate that we received a hash, not a plain password
-            if (passwordHash == null || passwordHash.length() != 64) {
-                throw new VerificationException(
-                    "Password must be pre-hashed using ClientStorage.hashPassword()",
-                    Component.translatable("authlogic.error.password_not_hashed")
-                );
+            // Validate password hash for offline mode only
+            // Online mode uses Mojang certificate keys and doesn't need password
+            if (!onlineMode) {
+                if (passwordHash == null || passwordHash.length() != 64) {
+                    throw new VerificationException(
+                        "Password must be pre-hashed using ClientStorage.hashPassword()",
+                        Component.translatable("authlogic.error.password_not_hashed")
+                    );
+                }
             }
             
             // 1. Deserialize server challenge
@@ -202,8 +210,10 @@ public class ClientNetworking {
                     
                     throw new VerificationException(
                         "Server public key mismatch! Possible MITM attack.",
-                        Component.translatable("authlogic.error.server_key_mismatch.title")
-                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                        Component.empty()
+                                .append(Component.translatable("authlogic.error.server_key_mismatch.title")
+                                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                                )
                             .append(Component.literal("\n\n"))
                             .append(Component.translatable("authlogic.error.server_key_mismatch")
                                 .withStyle(ChatFormatting.RESET, ChatFormatting.YELLOW))
@@ -226,9 +236,13 @@ public class ClientNetworking {
                 LOGGER.info("Trusting new server: {}", serverAddress);
             }
             
-            // 4. Derive client keypair from password hash (not plain password)
-            getStorage().deriveClientKeys(passwordHash, challenge.serverPublicKey);
-            KeyPair clientKeys = getStorage().getClientKeyPair();
+            // 4. Derive client keypair from password hash (offline mode only)
+            // Online mode uses Mojang certificate keys instead
+            KeyPair clientKeys = null;
+            if (!onlineMode) {
+                getStorage().deriveClientKeys(passwordHash, challenge.serverPublicKey);
+                clientKeys = getStorage().getClientKeyPair();
+            }
             
             // 5. Generate client temp keypair and nonce
             KeyPair clientTempKeys = KeysProvider.generateTemporaryKeyPair();
@@ -286,10 +300,10 @@ public class ClientNetworking {
                 OnlineVerificationPayload online = OnlineVerificationPayload.create(
                     clientUUID,
                     username,
-                    certData.publicKey,  // Use Mojang-signed public key
-                    clientKeys.getPrivate(),
-                    certData.expiresAtMillis,
-                    certData.keySignature,  // Use actual Mojang signature
+                    certData.publicKey(),  // Use Mojang-signed public key
+                    certData.privateKey(), // Use Mojang private key (NOT password-derived!)
+                    certData.expiresAtMillis(),
+                    certData.keySignature(),  // Use actual Mojang signature
                     challenge.serverTempKey,
                     clientTempKeys.getPublic(),
                     challenge.serverNonce,
