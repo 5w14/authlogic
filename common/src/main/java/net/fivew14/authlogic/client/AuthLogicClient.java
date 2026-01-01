@@ -36,7 +36,10 @@ public class AuthLogicClient {
         ClientNetworking.setStorage(clientStorage);
         ClientAuthHandler.setStorage(clientStorage);
 
-        onClientStarted(Minecraft.getInstance());
+        var mc = Minecraft.getInstance();
+        if (((MinecraftAccessor) mc).authlogic$getKeyManager() != null)
+            onClientStarted(mc);
+        else ClientLifecycleEvent.CLIENT_STARTED.register(AuthLogicClient::onClientStarted);
     }
 
     private static void onClientStarted(Minecraft minecraft) {

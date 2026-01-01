@@ -38,6 +38,10 @@ public class ServerStorage {
     private Set<String> onlineModeUsernames = new HashSet<>();
     private KeyPair serverKeyPair;
     
+    // Whitelist data (stored in separate file)
+    private boolean whitelistEnabled = false;
+    private Set<String> whitelistedUsernames = new HashSet<>();
+    
     /**
      * Loads server storage from disk.
      * Creates new files if they don't exist.
@@ -59,6 +63,9 @@ public class ServerStorage {
         } else {
             LOGGER.debug("No existing player keys found, starting fresh");
         }
+        
+        // Load whitelist
+        loadWhitelist();
         
         // Load or generate server keypair
         serverKeyPair = getOrCreateServerKeyPair();
@@ -313,6 +320,122 @@ public class ServerStorage {
         return serverKeyPair.getPrivate();
     }
     
+    // ==================== Whitelist Methods ====================
+    
+    /**
+     * Loads the whitelist from disk.
+     * If the file doesn't exist, whitelist is disabled with empty list.
+     */
+    private void loadWhitelist() {
+        try {
+            if (Files.exists(SavedStorage.getServerWhitelistPath())) {
+                WhitelistData data = SavedStorage.readJson(
+                    SavedStorage.getServerWhitelistPath(),
+                    WhitelistData.class
+                );
+                whitelistEnabled = data.enabled != null ? data.enabled : false;
+                whitelistedUsernames = data.usernames != null ? data.usernames : new HashSet<>();
+                LOGGER.debug("Loaded whitelist: enabled={}, {} usernames", 
+                    whitelistEnabled, whitelistedUsernames.size());
+            } else {
+                LOGGER.debug("No whitelist file found, whitelist disabled");
+                whitelistEnabled = false;
+                whitelistedUsernames = new HashSet<>();
+            }
+        } catch (IOException e) {
+            LOGGER.error("Failed to load whitelist, defaulting to disabled", e);
+            whitelistEnabled = false;
+            whitelistedUsernames = new HashSet<>();
+        }
+    }
+    
+    /**
+     * Saves the whitelist to disk.
+     * 
+     * @throws IOException if saving fails
+     */
+    private void saveWhitelist() throws IOException {
+        WhitelistData data = new WhitelistData();
+        data.enabled = whitelistEnabled;
+        data.usernames = whitelistedUsernames;
+        SavedStorage.writeJson(SavedStorage.getServerWhitelistPath(), data);
+        LOGGER.debug("Saved whitelist: enabled={}, {} usernames", 
+            whitelistEnabled, whitelistedUsernames.size());
+    }
+    
+    /**
+     * Checks if the whitelist is enabled.
+     * 
+     * @return true if whitelist is enabled
+     */
+    public boolean isWhitelistEnabled() {
+        return whitelistEnabled;
+    }
+    
+    /**
+     * Enables or disables the whitelist and saves to disk.
+     * 
+     * @param enabled true to enable, false to disable
+     * @throws IOException if saving fails
+     */
+    public void setWhitelistEnabled(boolean enabled) throws IOException {
+        this.whitelistEnabled = enabled;
+        saveWhitelist();
+    }
+    
+    /**
+     * Checks if a username is whitelisted.
+     * Comparison is case-insensitive.
+     * 
+     * @param username Username to check
+     * @return true if the username is in the whitelist
+     */
+    public boolean isWhitelisted(String username) {
+        return whitelistedUsernames.contains(username.toLowerCase());
+    }
+    
+    /**
+     * Adds a username to the whitelist and saves to disk.
+     * Username is stored lowercase for case-insensitive matching.
+     * 
+     * @param username Username to add
+     * @return true if the username was added, false if already whitelisted
+     * @throws IOException if saving fails
+     */
+    public boolean addToWhitelist(String username) throws IOException {
+        boolean added = whitelistedUsernames.add(username.toLowerCase());
+        if (added) {
+            saveWhitelist();
+        }
+        return added;
+    }
+    
+    /**
+     * Removes a username from the whitelist and saves to disk.
+     * 
+     * @param username Username to remove (case-insensitive)
+     * @return true if the username was removed, false if not in whitelist
+     * @throws IOException if saving fails
+     */
+    public boolean removeFromWhitelist(String username) throws IOException {
+        boolean removed = whitelistedUsernames.remove(username.toLowerCase());
+        if (removed) {
+            saveWhitelist();
+        }
+        return removed;
+    }
+    
+    /**
+     * Gets all whitelisted usernames.
+     * 
+     * @return Unmodifiable set of whitelisted usernames (lowercase)
+     */
+    public Set<String> getWhitelistedUsernames() {
+        return Collections.unmodifiableSet(whitelistedUsernames);
+    }
+    
+    // ==================== Internal Classes ====================
+    
     /**
      * Internal class for JSON serialization.
      */
@@ -320,5 +443,13 @@ public class ServerStorage {
         public Map<UUID, String> players = new HashMap<>();
         public Map<String, UUID> offlineUsernames = new HashMap<>();
         public Set<String> onlinePlayers = new HashSet<>();
+    }
+    
+    /**
+     * Internal class for whitelist JSON serialization.
+     */
+    private static class WhitelistData {
+        public Boolean enabled = false;
+        public Set<String> usernames = new HashSet<>();
     }
 }

@@ -165,6 +165,11 @@ public class ServerNetworking {
                 );
             }
             
+            // 6.6. Whitelist check - block non-whitelisted players early
+            if (getStorage().isWhitelistEnabled() && !getStorage().isWhitelisted(result.username)) {
+                throw new VerificationException("You are not whitelisted on this server.");
+            }
+            
             // 7. Auth mode consistency check - prevent offline impersonation of online players
             // If this username has EVER authenticated via online mode, only online mode is allowed
             if (getStorage().isOnlineModeUsername(result.username)) {

@@ -69,6 +69,20 @@ public class AuthLogicDedicated {
                     .executes(AuthLogicDedicated::executeListPlayers))
                 .then(Commands.literal("status")
                     .executes(AuthLogicDedicated::executeStatus))
+                .then(Commands.literal("whitelist")
+                    .then(Commands.literal("on")
+                        .executes(AuthLogicDedicated::executeWhitelistOn))
+                    .then(Commands.literal("off")
+                        .executes(AuthLogicDedicated::executeWhitelistOff))
+                    .then(Commands.literal("list")
+                        .executes(AuthLogicDedicated::executeWhitelistList))
+                    .then(Commands.literal("add")
+                        .then(Commands.argument("username", StringArgumentType.word())
+                            .executes(AuthLogicDedicated::executeWhitelistAdd)))
+                    .then(Commands.literal("remove")
+                        .then(Commands.argument("username", StringArgumentType.word())
+                            .suggests(AuthLogicDedicated::getWhitelistSuggestions)
+                            .executes(AuthLogicDedicated::executeWhitelistRemove))))
         );
 
     }
@@ -174,8 +188,132 @@ public class AuthLogicDedicated {
         source.sendSuccess(() -> Component.literal("Registered players: " + storage.getRegisteredPlayers().size()), false);
         source.sendSuccess(() -> Component.literal("Pending auth states: " + ServerAuthState.getAuthStateCount()), false);
         source.sendSuccess(() -> Component.literal("Pending joins: " + ServerAuthState.getAuthenticatedPlayersCount()), false);
+        source.sendSuccess(() -> Component.literal("Whitelist: " + (storage.isWhitelistEnabled() ? "Enabled" : "Disabled")), false);
         
         return 1;
+    }
+    
+    // ==================== Whitelist Commands ====================
+    
+    /**
+     * Enables the AuthLogic whitelist.
+     */
+    private static int executeWhitelistOn(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerStorage storage = AuthLogic.getServerStorage();
+        
+        try {
+            storage.setWhitelistEnabled(true);
+            source.sendSuccess(() -> Component.literal("AuthLogic whitelist enabled."), true);
+            LOGGER.debug("Admin {} enabled AuthLogic whitelist", source.getTextName());
+            return 1;
+        } catch (IOException e) {
+            LOGGER.error("Failed to enable whitelist", e);
+            source.sendFailure(Component.literal("Failed to save whitelist: " + e.getMessage()));
+            return 0;
+        }
+    }
+    
+    /**
+     * Disables the AuthLogic whitelist.
+     */
+    private static int executeWhitelistOff(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerStorage storage = AuthLogic.getServerStorage();
+        
+        try {
+            storage.setWhitelistEnabled(false);
+            source.sendSuccess(() -> Component.literal("AuthLogic whitelist disabled."), true);
+            LOGGER.debug("Admin {} disabled AuthLogic whitelist", source.getTextName());
+            return 1;
+        } catch (IOException e) {
+            LOGGER.error("Failed to disable whitelist", e);
+            source.sendFailure(Component.literal("Failed to save whitelist: " + e.getMessage()));
+            return 0;
+        }
+    }
+    
+    /**
+     * Lists all whitelisted usernames.
+     */
+    private static int executeWhitelistList(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerStorage storage = AuthLogic.getServerStorage();
+        
+        boolean enabled = storage.isWhitelistEnabled();
+        Set<String> usernames = storage.getWhitelistedUsernames();
+        
+        source.sendSuccess(() -> Component.literal("AuthLogic whitelist is " + (enabled ? "enabled" : "disabled") + "."), false);
+        
+        if (usernames.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("No players are whitelisted."), false);
+        } else {
+            source.sendSuccess(() -> Component.literal("Whitelisted players (" + usernames.size() + "):"), false);
+            for (String username : usernames) {
+                source.sendSuccess(() -> Component.literal("  - " + username), false);
+            }
+        }
+        
+        return 1;
+    }
+    
+    /**
+     * Adds a username to the whitelist.
+     */
+    private static int executeWhitelistAdd(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerStorage storage = AuthLogic.getServerStorage();
+        String username = StringArgumentType.getString(context, "username");
+        
+        try {
+            boolean added = storage.addToWhitelist(username);
+            if (added) {
+                source.sendSuccess(() -> Component.literal("Added '" + username + "' to the AuthLogic whitelist."), true);
+                LOGGER.debug("Admin {} added '{}' to AuthLogic whitelist", source.getTextName(), username);
+            } else {
+                source.sendSuccess(() -> Component.literal("'" + username + "' is already whitelisted."), false);
+            }
+            return 1;
+        } catch (IOException e) {
+            LOGGER.error("Failed to add to whitelist", e);
+            source.sendFailure(Component.literal("Failed to save whitelist: " + e.getMessage()));
+            return 0;
+        }
+    }
+    
+    /**
+     * Removes a username from the whitelist.
+     */
+    private static int executeWhitelistRemove(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        ServerStorage storage = AuthLogic.getServerStorage();
+        String username = StringArgumentType.getString(context, "username");
+        
+        try {
+            boolean removed = storage.removeFromWhitelist(username);
+            if (removed) {
+                source.sendSuccess(() -> Component.literal("Removed '" + username + "' from the AuthLogic whitelist."), true);
+                LOGGER.debug("Admin {} removed '{}' from AuthLogic whitelist", source.getTextName(), username);
+            } else {
+                source.sendSuccess(() -> Component.literal("'" + username + "' was not whitelisted."), false);
+            }
+            return 1;
+        } catch (IOException e) {
+            LOGGER.error("Failed to remove from whitelist", e);
+            source.sendFailure(Component.literal("Failed to save whitelist: " + e.getMessage()));
+            return 0;
+        }
+    }
+    
+    /**
+     * Provides tab completion for whitelist remove command.
+     */
+    private static CompletableFuture<Suggestions> getWhitelistSuggestions(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder sugg) {
+        ServerStorage storage = AuthLogic.getServerStorage();
+        for (String username : storage.getWhitelistedUsernames()) {
+            sugg.suggest(username);
+        }
+        return sugg.buildFuture();
     }
 
     /**

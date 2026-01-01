@@ -78,6 +78,15 @@ public class SavedStorage {
     }
     
     /**
+     * Gets path to server whitelist file.
+     * 
+     * @return Path to server_whitelist.json
+     */
+    public static Path getServerWhitelistPath() {
+        return getConfigDir().resolve("server_whitelist.json");
+    }
+    
+    /**
      * Reads JSON from a file.
      * 
      * @param path File path
