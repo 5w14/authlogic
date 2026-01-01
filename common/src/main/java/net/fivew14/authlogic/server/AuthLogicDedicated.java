@@ -115,7 +115,7 @@ public class AuthLogicDedicated {
                 source.sendSuccess(() -> Component.literal(
                     "Successfully reset key for player '" + playerName + "'. They will need to re-authenticate."
                 ), true);
-                LOGGER.info("Admin {} reset authentication key for player {}", 
+                LOGGER.debug("Admin {} reset authentication key for player {}", 
                     source.getTextName(), playerName);
                 return 1;
             } catch (IOException e) {
@@ -195,7 +195,7 @@ public class AuthLogicDedicated {
         
         // Check if player was authenticated during login (by username)
         String username = player.getName().getString();
-        LOGGER.info("Player '{}' joining, checking authentication status", username);
+        LOGGER.debug("Player '{}' joining, checking authentication status", username);
         boolean wasAuthenticated = ServerAuthState.consumeAuthentication(username);
         
         if (!wasAuthenticated) {
@@ -205,7 +205,7 @@ public class AuthLogicDedicated {
                 "Authentication required. Please install the AuthLogic mod to play on this server."
             ));
         } else {
-            LOGGER.info("Player {} ({}) authentication verified on join",
+            LOGGER.debug("Player {} ({}) authentication verified on join",
                 username, player.getUUID());
         }
     }

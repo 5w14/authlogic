@@ -89,7 +89,7 @@ public class FabricServerNetworking {
             
             try {
                 ServerNetworking.validateClientResponse(bufCopy, expectedUsername);
-                LOGGER.info("Client authenticated successfully: {}", expectedUsername);
+                LOGGER.debug("Client authenticated successfully: {}", expectedUsername);
             } catch (VerificationException e) {
                 LOGGER.error("Client authentication failed: {}", e.getMessage());
                 handler.disconnect(Component.literal("Authentication failed: " + e.getMessage()));

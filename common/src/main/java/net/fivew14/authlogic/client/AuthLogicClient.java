@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import dev.architectury.event.events.client.ClientLifecycleEvent;
 import net.fivew14.authlogic.client.ClientNetworking.MojangCertificateData;
 import net.fivew14.authlogic.client.screen.SetupMultiplayerPasswordScreen;
+import net.fivew14.authlogic.mixin.MinecraftAccessor;
 import net.fivew14.authlogic.verification.VerificationException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -35,26 +36,19 @@ public class AuthLogicClient {
         ClientNetworking.setStorage(clientStorage);
         ClientAuthHandler.setStorage(clientStorage);
 
-        ClientLifecycleEvent.CLIENT_STARTED.register(AuthLogicClient::onClientStarted);
-
-        if (Minecraft.getInstance().getProfileKeyPairManager() != null) {
-            onClientStarted(Minecraft.getInstance());
-        }
+        onClientStarted(Minecraft.getInstance());
     }
 
-    static boolean hasStartedSetup;
     private static void onClientStarted(Minecraft minecraft) {
-        if (hasStartedSetup) return;
-        hasStartedSetup = true;
-
-        LOGGER.info("Client started, checking profile key pair");
-        minecraft.getProfileKeyPairManager().prepareKeyPair().whenComplete((keyPairOpt, e) -> {
+        LOGGER.debug("Client started, checking profile key pair");
+        ((MinecraftAccessor)minecraft).authlogic$getKeyManager()
+                .prepareKeyPair().whenComplete((keyPairOpt, e) -> {
             if (e != null || keyPairOpt.isEmpty()) {
-                LOGGER.info("Client is in offline mode (no profile key pair available)");
+                LOGGER.debug("Client is in offline mode (no profile key pair available)");
                 onlineMode = false;
                 cachedCertificate = Optional.empty();
             } else {
-                LOGGER.info("Client is in online mode (profile key pair available)");
+                LOGGER.debug("Client is in online mode (profile key pair available)");
                 onlineMode = true;
                 
                 // Cache the certificate data including private key
@@ -161,7 +155,7 @@ public class AuthLogicClient {
             mojangCert
         );
         
-        LOGGER.info("Successfully generated authentication response for {}", serverAddress);
+        LOGGER.debug("Successfully generated authentication response for {}", serverAddress);
         return response;
     }
 

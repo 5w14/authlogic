@@ -73,7 +73,7 @@ public class MojangPublicKeyFetcher {
         }
         
         // Start new fetch
-        LOGGER.info("Fetching Mojang public keys from API");
+        LOGGER.debug("Fetching Mojang public keys from API");
         ongoingFetch = CompletableFuture.supplyAsync(() -> {
             try {
                 return fetchPublicKeysFromAPI();
@@ -140,7 +140,7 @@ public class MojangPublicKeyFetcher {
             (long) (RANDOM.nextDouble() * (CACHE_MAX_DURATION_MS - CACHE_MIN_DURATION_MS));
         cacheExpiryTime = System.currentTimeMillis() + randomTTL;
         
-        LOGGER.info("Successfully fetched {} Mojang public keys (cache expires in {} min)", 
+        LOGGER.debug("Successfully fetched {} Mojang public keys (cache expires in {} min)", 
             keys.size(), randomTTL / 60000);
         return keys;
     }

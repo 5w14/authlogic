@@ -70,7 +70,7 @@ public final class S2CLoginQuery implements IntSupplier {
         
         if (isLocal || AuthLogic.isIntegratedServer()) {
             // Skip authentication for local/singleplayer/integrated server
-            LOGGER.info("Skipping authentication query for local/integrated server (isLocal={}, isIntegrated={})",
+            LOGGER.debug("Skipping authentication query for local/integrated server (isLocal={}, isIntegrated={})",
                 isLocal, AuthLogic.isIntegratedServer());
             return java.util.Collections.emptyList();
         }

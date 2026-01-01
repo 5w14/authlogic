@@ -29,7 +29,7 @@ public class VerificationRegistry {
             throw new IllegalStateException("Verification codec already registered: " + type);
         }
         CODECS.put(type, codec);
-        LOGGER.info("Registered verification codec: {}", type);
+        LOGGER.debug("Registered verification codec: {}", type);
     }
     
     /**

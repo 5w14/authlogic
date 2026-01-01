@@ -191,7 +191,7 @@ public class ServerNetworking {
                 // Record as online-mode username
                 if (!getStorage().isOnlineModeUsername(result.username)) {
                     getStorage().recordOnlineModeUsername(result.username);
-                    LOGGER.info("Recorded new online-mode player: {}", result.username);
+                    LOGGER.debug("Recorded new online-mode player: {}", result.username);
                 }
                 getStorage().save();
             }
@@ -217,7 +217,7 @@ public class ServerNetworking {
                     getStorage().storePlayerKey(result.playerUUID, result.clientPublicKey);
                     getStorage().recordOfflineUsername(result.username, result.playerUUID);
                     getStorage().save();
-                    LOGGER.info("Trusting new player (offline mode): {} ({})", result.username, result.playerUUID);
+                    LOGGER.debug("Trusting new player (offline mode): {} ({})", result.username, result.playerUUID);
                 }
             } else {
                 LOGGER.debug("Skipping TOFU for online mode user {} ({})", result.username, result.playerUUID);
@@ -227,7 +227,7 @@ public class ServerNetworking {
             // Note: We no longer store the finished state - it's not needed
             ServerAuthState.markAuthenticated(result.username);
             
-            LOGGER.info("Successfully authenticated player {} ({})", result.username, result.playerUUID);
+            LOGGER.debug("Successfully authenticated player {} ({})", result.username, result.playerUUID);
             
         } catch (VerificationException e) {
             // State was already removed at step 2, or nonce wasn't extracted yet

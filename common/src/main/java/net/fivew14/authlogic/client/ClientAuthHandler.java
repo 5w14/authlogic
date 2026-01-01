@@ -83,7 +83,7 @@ public class ClientAuthHandler {
             if (passwordProvider.shouldSavePassword()) {
                 getStorage().savePasswordHashToDisk(passwordHash);
                 getStorage().save();
-                LOGGER.info("Saved password hash for future logins");
+                LOGGER.debug("Saved password hash for future logins");
             }
             
             return passwordHash;
@@ -101,7 +101,7 @@ public class ClientAuthHandler {
     public static void clearSavedPassword() throws IOException {
         getStorage().clearPasswordHash();
         getStorage().save();
-        LOGGER.info("Cleared saved password hash");
+        LOGGER.debug("Cleared saved password hash");
     }
     
     /**
@@ -191,7 +191,7 @@ public class ClientAuthHandler {
         
         @Override
         public String getPassword(String serverAddress) {
-            LOGGER.info("Using constant test password for server: {}", serverAddress);
+            LOGGER.debug("Using constant test password for server: {}", serverAddress);
             return password;
         }
         

@@ -58,9 +58,9 @@ public class ClientStorage {
                 ServersData.class
             );
             trustedServers = data.servers != null ? data.servers : new HashMap<>();
-            LOGGER.info("Loaded {} trusted servers", trustedServers.size());
+            LOGGER.debug("Loaded {} trusted servers", trustedServers.size());
         } else {
-            LOGGER.info("No existing trusted servers found");
+            LOGGER.debug("No existing trusted servers found");
             trustedServers = new HashMap<>();
         }
     }
@@ -165,7 +165,7 @@ public class ClientStorage {
         byte[] keyBytes = SerializationUtil.serializePublicKey(serverPublicKey);
         String base64Key = Base64.getEncoder().encodeToString(keyBytes);
         trustedServers.put(serverAddress, base64Key);
-        LOGGER.info("Trusted server: {}", serverAddress);
+        LOGGER.debug("Trusted server: {}", serverAddress);
     }
     
     /**
@@ -207,7 +207,7 @@ public class ClientStorage {
      */
     public void untrustServer(String serverAddress) {
         trustedServers.remove(serverAddress);
-        LOGGER.info("Removed trust for server: {}", serverAddress);
+        LOGGER.debug("Removed trust for server: {}", serverAddress);
     }
     
     /**
@@ -225,7 +225,7 @@ public class ClientStorage {
             throw new IllegalArgumentException("Must provide SHA-256 hash (64 hex chars)");
         }
         SavedStorage.writeText(SavedStorage.getClientPasswordPath(), passwordHash);
-        LOGGER.info("Saved password hash to disk");
+        LOGGER.debug("Saved password hash to disk");
     }
     
     /**
@@ -274,7 +274,7 @@ public class ClientStorage {
     public void clearPasswordHash() throws IOException {
         if (hasPasswordSaved()) {
             Files.delete(SavedStorage.getClientPasswordPath());
-            LOGGER.info("Deleted saved password hash");
+            LOGGER.debug("Deleted saved password hash");
         }
     }
     

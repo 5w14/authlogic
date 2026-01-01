@@ -54,10 +54,10 @@ public class ServerStorage {
             playerPublicKeys = data.players != null ? data.players : new HashMap<>();
             offlineUsernameToUUID = data.offlineUsernames != null ? data.offlineUsernames : new HashMap<>();
             onlineModeUsernames = data.onlinePlayers != null ? data.onlinePlayers : new HashSet<>();
-            LOGGER.info("Loaded {} player keys, {} offline usernames, and {} online-mode usernames", 
+            LOGGER.debug("Loaded {} player keys, {} offline usernames, and {} online-mode usernames", 
                 playerPublicKeys.size(), offlineUsernameToUUID.size(), onlineModeUsernames.size());
         } else {
-            LOGGER.info("No existing player keys found, starting fresh");
+            LOGGER.debug("No existing player keys found, starting fresh");
         }
         
         // Load or generate server keypair

@@ -229,7 +229,7 @@ public class ClientNetworking {
                 // First time connecting - trust on first use
                 getStorage().trustServer(serverAddress, challenge.serverPublicKey);
                 getStorage().save();
-                LOGGER.info("Trusting new server: {}", serverAddress);
+                LOGGER.debug("Trusting new server: {}", serverAddress);
             }
             
             // 4. Derive client keypair from password hash (offline mode only)
@@ -346,7 +346,7 @@ public class ClientNetworking {
             FriendlyByteBuf responseBuf = new FriendlyByteBuf(Unpooled.buffer());
             response.writeToBuf(responseBuf);
             
-            LOGGER.info("Generated client response for {} mode", onlineMode ? "online" : "offline");
+            LOGGER.debug("Generated client response for {} mode", onlineMode ? "online" : "offline");
             return responseBuf;
             
         } catch (VerificationException e) {

@@ -76,7 +76,7 @@ public final class C2SQueryResponse implements IntSupplier {
     }
 
     public static void handle(HandshakeHandler h, C2SQueryResponse msg, Supplier<NetworkEvent.Context> ctx) {
-        LOGGER.info("C2SQueryResponse.handle() called, isEmpty={}", msg.isEmpty());
+        LOGGER.debug("C2SQueryResponse.handle() called, isEmpty={}", msg.isEmpty());
         var networkManager = ctx.get().getNetworkManager();
         
         // Skip authentication for empty responses (local/integrated server)
@@ -96,12 +96,12 @@ public final class C2SQueryResponse implements IntSupplier {
                 }
             }
             
-            LOGGER.info("Validating client response for expected username: {}", expectedUsername);
+            LOGGER.debug("Validating client response for expected username: {}", expectedUsername);
             
             // Validate client response - correlation is by server nonce in the response
             ServerNetworking.validateClientResponse(msg.payload, expectedUsername);
             
-            LOGGER.info("Client authenticated successfully: {}", expectedUsername);
+            LOGGER.debug("Client authenticated successfully: {}", expectedUsername);
             ctx.get().setPacketHandled(true);
             
         } catch (VerificationException e) {
