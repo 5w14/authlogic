@@ -3,12 +3,13 @@
   "id": "authlogic",
   "version": "${version}",
   "name": "AuthLogic",
-  "description": "",
+  "description": "Simple and effective authentication solution for modded servers.",
   "authors": [
     "5w14"
   ],
   "contact": {
-    "homepage": ""
+    "homepage": "https://github.com/5w14/auth-logic",
+    "issues": "https://github.com/5w14/auth-logic/issues"
   },
   "license": "MIT",
   "icon": "assets/authlogic/icon.png",

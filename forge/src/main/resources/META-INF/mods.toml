@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[47,)"
-#issueTrackerURL = ""
+issueTrackerURL = "https://github.com/5w14/auth-logic/issues"
 license = "MIT"
 
 [[mods]]
@@ -9,7 +9,7 @@ version = "${version}"
 displayName = "AuthLogic"
 authors = "5w14"
 description = '''
-
+Simple and effective authentication solution for modded servers.
 '''
 #logoFile = ""
 
