@@ -29,7 +29,7 @@ public class AuthLogicDedicated {
     private static boolean isRunningDedicated;
     private static boolean isActive = false;
     private static MinecraftServer server = null;
-    
+
     /**
      * Counter for cleanup tick interval.
      * Cleanup runs every CLEANUP_INTERVAL_TICKS ticks (roughly every 5 seconds at 20 TPS).
@@ -59,34 +59,34 @@ public class AuthLogicDedicated {
 
     private static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext, Commands.CommandSelection selection) {
         dispatcher.register(
-            Commands.literal("authlogic")
-                .requires(source -> source.hasPermission(3)) // Require OP level 3
-                .then(Commands.literal("reset")
-                    .then(Commands.argument("player", StringArgumentType.word())
-                            .suggests(AuthLogicDedicated::getSuggestions)
-                        .executes(AuthLogicDedicated::executeResetKey)))
-                .then(Commands.literal("list")
-                    .executes(AuthLogicDedicated::executeListPlayers))
-                .then(Commands.literal("status")
-                    .executes(AuthLogicDedicated::executeStatus))
-                .then(Commands.literal("whitelist")
-                    .then(Commands.literal("on")
-                        .executes(AuthLogicDedicated::executeWhitelistOn))
-                    .then(Commands.literal("off")
-                        .executes(AuthLogicDedicated::executeWhitelistOff))
-                    .then(Commands.literal("list")
-                        .executes(AuthLogicDedicated::executeWhitelistList))
-                    .then(Commands.literal("add")
-                        .then(Commands.argument("username", StringArgumentType.word())
-                            .executes(AuthLogicDedicated::executeWhitelistAdd)))
-                    .then(Commands.literal("remove")
-                        .then(Commands.argument("username", StringArgumentType.word())
-                            .suggests(AuthLogicDedicated::getWhitelistSuggestions)
-                            .executes(AuthLogicDedicated::executeWhitelistRemove))))
+                Commands.literal("authlogic")
+                        .requires(source -> source.hasPermission(3)) // Require OP level 3
+                        .then(Commands.literal("reset")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .suggests(AuthLogicDedicated::getSuggestions)
+                                        .executes(AuthLogicDedicated::executeResetKey)))
+                        .then(Commands.literal("list")
+                                .executes(AuthLogicDedicated::executeListPlayers))
+                        .then(Commands.literal("status")
+                                .executes(AuthLogicDedicated::executeStatus))
+                        .then(Commands.literal("whitelist")
+                                .then(Commands.literal("on")
+                                        .executes(AuthLogicDedicated::executeWhitelistOn))
+                                .then(Commands.literal("off")
+                                        .executes(AuthLogicDedicated::executeWhitelistOff))
+                                .then(Commands.literal("list")
+                                        .executes(AuthLogicDedicated::executeWhitelistList))
+                                .then(Commands.literal("add")
+                                        .then(Commands.argument("username", StringArgumentType.word())
+                                                .executes(AuthLogicDedicated::executeWhitelistAdd)))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("username", StringArgumentType.word())
+                                                .suggests(AuthLogicDedicated::getWhitelistSuggestions)
+                                                .executes(AuthLogicDedicated::executeWhitelistRemove))))
         );
 
     }
-    
+
     /**
      * Resets a player's stored public key by username.
      * This allows the player to re-authenticate with a new key (e.g., after password change).
@@ -94,15 +94,15 @@ public class AuthLogicDedicated {
     private static int executeResetKey(CommandContext<CommandSourceStack> context) {
         String playerName = StringArgumentType.getString(context, "player");
         CommandSourceStack source = context.getSource();
-        
+
         // Find UUID for the player name by looking through registered players
         ServerStorage storage = AuthLogic.getServerStorage();
         Set<UUID> registeredPlayers = storage.getRegisteredPlayers();
-        
+
         // Try to find the player by checking the server's player list or stored data
         // Since we store by UUID, we need to find the UUID for this username
         UUID targetUuid = null;
-        
+
         // First check if player is online
         if (server != null) {
             ServerPlayer onlinePlayer = server.getPlayerList().getPlayerByName(playerName);
@@ -110,27 +110,27 @@ public class AuthLogicDedicated {
                 targetUuid = onlinePlayer.getUUID();
             }
         }
-        
+
         // If not online, try offline UUID (for offline mode servers)
         if (targetUuid == null) {
             // In offline mode, UUID is derived from username
             targetUuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes());
         }
-        
+
         if (!storage.isPlayerRegistered(targetUuid)) {
             source.sendFailure(Component.literal("Player '" + playerName + "' has no stored key."));
             return 0;
         }
-        
+
         boolean removed = storage.removePlayerKey(targetUuid);
         if (removed) {
             try {
                 storage.save();
                 source.sendSuccess(() -> Component.literal(
-                    "Successfully reset key for player '" + playerName + "'. They will need to re-authenticate."
+                        "Successfully reset key for player '" + playerName + "'. They will need to re-authenticate."
                 ), true);
-                LOGGER.debug("Admin {} reset authentication key for player {}", 
-                    source.getTextName(), playerName);
+                LOGGER.debug("Admin {} reset authentication key for player {}",
+                        source.getTextName(), playerName);
                 return 1;
             } catch (IOException e) {
                 LOGGER.error("Failed to save storage after key reset", e);
@@ -142,7 +142,7 @@ public class AuthLogicDedicated {
             return 0;
         }
     }
-    
+
     /**
      * Lists all players with stored authentication keys.
      */
@@ -150,12 +150,12 @@ public class AuthLogicDedicated {
         CommandSourceStack source = context.getSource();
         ServerStorage storage = AuthLogic.getServerStorage();
         Set<UUID> registeredPlayers = storage.getRegisteredPlayers();
-        
+
         if (registeredPlayers.isEmpty()) {
             source.sendSuccess(() -> Component.literal("No players have registered authentication keys."), false);
             return 1;
         }
-        
+
         source.sendSuccess(() -> Component.literal("Registered players (" + registeredPlayers.size() + "):"), false);
         for (UUID uuid : registeredPlayers) {
             // Try to get player name if online
@@ -166,42 +166,42 @@ public class AuthLogicDedicated {
                     playerName = player.getName().getString();
                 }
             }
-            
-            final String displayName = playerName != null 
-                ? playerName + " (" + uuid + ")"
-                : uuid.toString();
+
+            final String displayName = playerName != null
+                    ? playerName + " (" + uuid + ")"
+                    : uuid.toString();
             source.sendSuccess(() -> Component.literal("  - " + displayName), false);
         }
-        
+
         return 1;
     }
-    
+
     /**
      * Shows AuthLogic status information.
      */
     private static int executeStatus(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         ServerStorage storage = AuthLogic.getServerStorage();
-        
+
         source.sendSuccess(() -> Component.literal("=== AuthLogic Status ==="), false);
         source.sendSuccess(() -> Component.literal("Active: " + (isActive ? "Yes" : "No (online-mode enabled)")), false);
         source.sendSuccess(() -> Component.literal("Registered players: " + storage.getRegisteredPlayers().size()), false);
         source.sendSuccess(() -> Component.literal("Pending auth states: " + ServerAuthState.getAuthStateCount()), false);
         source.sendSuccess(() -> Component.literal("Pending joins: " + ServerAuthState.getAuthenticatedPlayersCount()), false);
         source.sendSuccess(() -> Component.literal("Whitelist: " + (storage.isWhitelistEnabled() ? "Enabled" : "Disabled")), false);
-        
+
         return 1;
     }
-    
+
     // ==================== Whitelist Commands ====================
-    
+
     /**
      * Enables the AuthLogic whitelist.
      */
     private static int executeWhitelistOn(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         ServerStorage storage = AuthLogic.getServerStorage();
-        
+
         try {
             storage.setWhitelistEnabled(true);
             source.sendSuccess(() -> Component.literal("AuthLogic whitelist enabled."), true);
@@ -213,14 +213,14 @@ public class AuthLogicDedicated {
             return 0;
         }
     }
-    
+
     /**
      * Disables the AuthLogic whitelist.
      */
     private static int executeWhitelistOff(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         ServerStorage storage = AuthLogic.getServerStorage();
-        
+
         try {
             storage.setWhitelistEnabled(false);
             source.sendSuccess(() -> Component.literal("AuthLogic whitelist disabled."), true);
@@ -232,19 +232,19 @@ public class AuthLogicDedicated {
             return 0;
         }
     }
-    
+
     /**
      * Lists all whitelisted usernames.
      */
     private static int executeWhitelistList(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         ServerStorage storage = AuthLogic.getServerStorage();
-        
+
         boolean enabled = storage.isWhitelistEnabled();
         Set<String> usernames = storage.getWhitelistedUsernames();
-        
+
         source.sendSuccess(() -> Component.literal("AuthLogic whitelist is " + (enabled ? "enabled" : "disabled") + "."), false);
-        
+
         if (usernames.isEmpty()) {
             source.sendSuccess(() -> Component.literal("No players are whitelisted."), false);
         } else {
@@ -253,10 +253,10 @@ public class AuthLogicDedicated {
                 source.sendSuccess(() -> Component.literal("  - " + username), false);
             }
         }
-        
+
         return 1;
     }
-    
+
     /**
      * Adds a username to the whitelist.
      */
@@ -264,7 +264,7 @@ public class AuthLogicDedicated {
         CommandSourceStack source = context.getSource();
         ServerStorage storage = AuthLogic.getServerStorage();
         String username = StringArgumentType.getString(context, "username");
-        
+
         try {
             boolean added = storage.addToWhitelist(username);
             if (added) {
@@ -280,7 +280,7 @@ public class AuthLogicDedicated {
             return 0;
         }
     }
-    
+
     /**
      * Removes a username from the whitelist.
      */
@@ -288,7 +288,7 @@ public class AuthLogicDedicated {
         CommandSourceStack source = context.getSource();
         ServerStorage storage = AuthLogic.getServerStorage();
         String username = StringArgumentType.getString(context, "username");
-        
+
         try {
             boolean removed = storage.removeFromWhitelist(username);
             if (removed) {
@@ -304,7 +304,7 @@ public class AuthLogicDedicated {
             return 0;
         }
     }
-    
+
     /**
      * Provides tab completion for whitelist remove command.
      */
@@ -320,45 +320,45 @@ public class AuthLogicDedicated {
      * Called when a player joins the server.
      * Verifies that the player completed authentication during login.
      * If not authenticated, disconnects the player.
-     * 
+     *
      * @param player The joining player
      */
     private static void onPlayerJoin(ServerPlayer player) {
         // Skip if not active (online-mode server) or singleplayer
         if (!isActive || server == null || server.isSingleplayer()) {
             LOGGER.debug("Skipping auth check for player join (isActive={}, server={}, singleplayer={})",
-                isActive, server != null, server != null && server.isSingleplayer());
+                    isActive, server != null, server != null && server.isSingleplayer());
             return;
         }
-        
+
         // Check if player was authenticated during login (by username)
         String username = player.getName().getString();
         LOGGER.debug("Player '{}' joining, checking authentication status", username);
         boolean wasAuthenticated = ServerAuthState.consumeAuthentication(username);
-        
+
         if (!wasAuthenticated) {
             LOGGER.warn("Player {} ({}) joined without completing AuthLogic authentication - disconnecting",
-                username, player.getUUID());
+                    username, player.getUUID());
             player.connection.disconnect(Component.literal(
-                "Authentication required. Please install the AuthLogic mod to play on this server."
+                    "Authentication required. Please install the AuthLogic mod to play on this server."
             ));
         } else {
             LOGGER.debug("Player {} ({}) authentication verified on join",
-                username, player.getUUID());
+                    username, player.getUUID());
         }
     }
-    
+
     /**
      * Called every server tick.
      * Periodically cleans up stale authentication states.
-     * 
+     *
      * @param server The Minecraft server
      */
     private static void onServerTick(MinecraftServer server) {
         if (!isActive) {
             return;
         }
-        
+
         tickCounter++;
         if (tickCounter >= CLEANUP_INTERVAL_TICKS) {
             tickCounter = 0;

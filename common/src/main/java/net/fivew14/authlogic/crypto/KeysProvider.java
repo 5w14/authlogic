@@ -8,7 +8,7 @@ public class KeysProvider {
     private static final KeyPairGenerator tempKeyGenerator;
     private static final KeyPairGenerator constantKeyGenerator;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    
+
     /**
      * RSA key size for server constant keys.
      * 4096 bits provides strong security margin for long-term server keys.
@@ -48,12 +48,13 @@ public class KeysProvider {
     /**
      * Generates a cryptographically secure random nonce.
      * Reuses a shared SecureRandom instance for efficiency.
-     * 
+     *
      * @return Random long value for use as nonce
      */
     public static long generateNonce() {
         return SECURE_RANDOM.nextLong();
     }
 
-    public static void bootstrap() { }
+    public static void bootstrap() {
+    }
 }

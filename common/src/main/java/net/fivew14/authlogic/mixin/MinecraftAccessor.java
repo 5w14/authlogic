@@ -7,5 +7,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(Minecraft.class)
 public interface MinecraftAccessor {
-    @Accessor("profileKeyPairManager") public ProfileKeyPairManager authlogic$getKeyManager();
+    @Accessor("profileKeyPairManager")
+    public ProfileKeyPairManager authlogic$getKeyManager();
 }

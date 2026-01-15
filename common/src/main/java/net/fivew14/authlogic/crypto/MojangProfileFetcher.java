@@ -25,55 +25,55 @@ public class MojangProfileFetcher {
     private static final String MOJANG_SESSION_URL = "https://sessionserver.mojang.com/session/minecraft/profile/";
     private static final long CACHE_DURATION_MS = TimeUnit.MINUTES.toMillis(60); // 60 minute cache
     private static final Gson GSON = new Gson();
-    
+
     /**
      * Profile data from Mojang API.
      */
     public record MojangProfile(String id, String name, long fetchedAt) {
         /**
          * Gets the UUID in standard format (with dashes).
-         * 
+         *
          * @return UUID
          */
         public UUID getUUID() {
             // id is 32 hex chars without dashes
             String withDashes = id.substring(0, 8) + "-" +
-                               id.substring(8, 12) + "-" +
-                               id.substring(12, 16) + "-" +
-                               id.substring(16, 20) + "-" +
-                               id.substring(20, 32);
+                    id.substring(8, 12) + "-" +
+                    id.substring(12, 16) + "-" +
+                    id.substring(16, 20) + "-" +
+                    id.substring(20, 32);
             return UUID.fromString(withDashes);
         }
-        
+
         /**
          * Checks if this cache entry is still valid.
-         * 
+         *
          * @return true if valid
          */
         public boolean isValid() {
             return (System.currentTimeMillis() - fetchedAt) < CACHE_DURATION_MS;
         }
     }
-    
+
     // Cache: UUID (without dashes) -> profile
     private static final ConcurrentHashMap<String, MojangProfile> profileCache = new ConcurrentHashMap<>();
-    
+
     /**
      * Gets profile data for a UUID from Mojang API (uses cache if available).
-     * 
+     *
      * @param uuid Player's UUID
      * @return CompletableFuture with Optional profile data (empty if not found or error)
      */
     public static CompletableFuture<Optional<MojangProfile>> getProfileByUUID(UUID uuid) {
         String trimmedUUID = uuid.toString().replace("-", "");
-        
+
         // Check cache
         MojangProfile cached = profileCache.get(trimmedUUID);
         if (cached != null && cached.isValid()) {
             LOGGER.debug("Using cached profile for UUID {}", uuid);
             return CompletableFuture.completedFuture(Optional.of(cached));
         }
-        
+
         // Fetch from API
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -89,11 +89,11 @@ public class MojangProfileFetcher {
             }
         });
     }
-    
+
     /**
      * Verifies that a UUID matches a username according to Mojang's records.
-     * 
-     * @param uuid Player's UUID
+     *
+     * @param uuid             Player's UUID
      * @param expectedUsername Expected username
      * @return CompletableFuture with true if UUID-username matches, false otherwise
      */
@@ -103,24 +103,24 @@ public class MojangProfileFetcher {
                 LOGGER.warn("Could not verify UUID {} - profile not found or API error", uuid);
                 return false;
             }
-            
+
             MojangProfile profile = profileOpt.get();
             boolean matches = profile.name.equalsIgnoreCase(expectedUsername);
-            
+
             if (!matches) {
-                LOGGER.warn("UUID-username mismatch for {}: expected '{}', got '{}'", 
-                    uuid, expectedUsername, profile.name);
+                LOGGER.warn("UUID-username mismatch for {}: expected '{}', got '{}'",
+                        uuid, expectedUsername, profile.name);
             } else {
                 LOGGER.debug("UUID-username verified for {} = {}", uuid, profile.name);
             }
-            
+
             return matches;
         });
     }
-    
+
     /**
      * Fetches profile data from Mojang API.
-     * 
+     *
      * @param trimmedUUID UUID without dashes
      * @return Profile data
      * @throws Exception if fetch or parsing fails
@@ -132,7 +132,7 @@ public class MojangProfileFetcher {
         conn.setConnectTimeout(5000);
         conn.setReadTimeout(5000);
         conn.setRequestProperty("User-Agent", "AuthLogic/1.0");
-        
+
         int responseCode = conn.getResponseCode();
         if (responseCode == 204 || responseCode == 404) {
             throw new RuntimeException("Profile not found for UUID: " + trimmedUUID);
@@ -140,7 +140,7 @@ public class MojangProfileFetcher {
         if (responseCode != 200) {
             throw new RuntimeException("Mojang API returned status: " + responseCode);
         }
-        
+
         // Read response
         StringBuilder response = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(
@@ -150,20 +150,20 @@ public class MojangProfileFetcher {
                 response.append(line);
             }
         }
-        
+
         // Parse JSON response
         JsonObject jsonResponse = GSON.fromJson(response.toString(), JsonObject.class);
         String id = jsonResponse.get("id").getAsString();
         String name = jsonResponse.get("name").getAsString();
-        
+
         // Cache and return
         MojangProfile profile = new MojangProfile(id, name, System.currentTimeMillis());
         profileCache.put(trimmedUUID, profile);
-        
+
         LOGGER.debug("Fetched profile for UUID {}: {}", trimmedUUID, name);
         return profile;
     }
-    
+
     /**
      * Clears the cache.
      */

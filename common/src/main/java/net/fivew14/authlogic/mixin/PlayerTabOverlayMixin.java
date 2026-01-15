@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(PlayerTabOverlay.class)
 public class PlayerTabOverlayMixin {
-    @Redirect(at= @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;isLocalServer()Z"), method = "render")
+    @Redirect(at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;isLocalServer()Z"), method = "render")
     public boolean a(Minecraft instance) {
         return true;
     }

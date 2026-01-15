@@ -32,5 +32,5 @@
     "architectury": ">=9.2.14",
     "fabric-api": "*"
   },
-  "suggests": { }
+  "suggests": {}
 }

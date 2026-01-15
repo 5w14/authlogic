@@ -23,7 +23,7 @@ public final class AuthLogic {
     public static final String MOD_ID = "authlogic";
     public static final ResourceLocation NETWORKING_CHANNEL_ID = AuthLogic.id("authlogin");
     private static final Logger LOGGER = LogUtils.getLogger();
-    
+
     private static ServerStorage serverStorage;
     private static boolean isIntegratedServer = false;
 
@@ -33,13 +33,13 @@ public final class AuthLogic {
      */
     public static void init() {
         LOGGER.info("Initializing AuthLogic");
-        
+
         // Bootstrap crypto providers
         KeysProvider.bootstrap();
-        
+
         // Register built-in verification codecs
         registerVerificationCodecs();
-        
+
         // Initialize server storage on dedicated server
         // Client storage is initialized separately by AuthLogicClient.onClientInit()
         if (Platform.getEnvironment() == Env.SERVER) {
@@ -50,11 +50,11 @@ public final class AuthLogic {
             LifecycleEvent.SERVER_STARTING.register(AuthLogic::onServerStarting);
             LifecycleEvent.SERVER_STOPPED.register(AuthLogic::onServerStopped);
         }
-        
+
         LOGGER.info("AuthLogic initialized successfully with {} verification codecs",
-            VerificationRegistry.getRegisteredTypes().size());
+                VerificationRegistry.getRegisteredTypes().size());
     }
-    
+
     /**
      * Called when a server is starting (including integrated servers).
      */
@@ -66,7 +66,7 @@ public final class AuthLogic {
             initServerStorage();
         }
     }
-    
+
     /**
      * Called when a server stops.
      */
@@ -77,26 +77,26 @@ public final class AuthLogic {
             serverStorage = null;
         }
     }
-    
+
     /**
      * Registers built-in verification codecs.
      */
     private static void registerVerificationCodecs() {
         // Register offline mode codec
         VerificationRegistry.register(
-            new ResourceLocation(MOD_ID, "offline"),
-            new OfflineVerificationCodec()
+                new ResourceLocation(MOD_ID, "offline"),
+                new OfflineVerificationCodec()
         );
-        
+
         // Register online mode codec
         VerificationRegistry.register(
-            new ResourceLocation(MOD_ID, "online"),
-            new OnlineVerificationCodec()
+                new ResourceLocation(MOD_ID, "online"),
+                new OnlineVerificationCodec()
         );
-        
+
         LOGGER.info("Registered verification codecs: offline, online");
     }
-    
+
     /**
      * Initializes server-side storage.
      */
@@ -111,10 +111,10 @@ public final class AuthLogic {
             throw new RuntimeException("Failed to initialize server storage", e);
         }
     }
-    
+
     /**
      * Gets the server storage instance.
-     * 
+     *
      * @return Server storage
      * @throws IllegalStateException if called on client or not initialized
      */
@@ -128,10 +128,10 @@ public final class AuthLogic {
     public static boolean isOnDedicated() {
         return AuthLogicDedicated.isRunningDedicated();
     }
-    
+
     /**
      * Checks if an integrated (singleplayer) server is currently running.
-     * 
+     *
      * @return true if an integrated server is active
      */
     public static boolean isIntegratedServer() {

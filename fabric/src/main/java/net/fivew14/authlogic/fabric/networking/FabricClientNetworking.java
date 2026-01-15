@@ -23,16 +23,16 @@ import java.util.function.Consumer;
  */
 public class FabricClientNetworking {
     private static final Logger LOGGER = LogUtils.getLogger();
-    
+
     public static void bootstrap() {
         ClientLoginNetworking.registerGlobalReceiver(AuthLogic.NETWORKING_CHANNEL_ID, FabricClientNetworking::handleClient);
     }
 
     private static CompletableFuture<@Nullable FriendlyByteBuf> handleClient(
-        Minecraft minecraft, 
-        ClientHandshakePacketListenerImpl handler,
-        FriendlyByteBuf buf, 
-        Consumer<GenericFutureListener<? extends Future<? super Void>>> consumer
+            Minecraft minecraft,
+            ClientHandshakePacketListenerImpl handler,
+            FriendlyByteBuf buf,
+            Consumer<GenericFutureListener<? extends Future<? super Void>>> consumer
     ) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -40,7 +40,7 @@ public class FabricClientNetworking {
                 return AuthLogicClient.handleServerChallenge(buf, serverAddress);
             } catch (VerificationException e) {
                 LOGGER.error("Authentication failed: {}", e.getMessage());
-                ((ClientHandshakeAccessor)handler).authlogic$getConnection().disconnect(e.getVisualError());
+                ((ClientHandshakeAccessor) handler).authlogic$getConnection().disconnect(e.getVisualError());
                 return null;
             } catch (Exception e) {
                 LOGGER.error("Unexpected error during authentication", e);
@@ -48,16 +48,16 @@ public class FabricClientNetworking {
             }
         });
     }
-    
+
     /**
      * Extracts server address from the connection.
-     * 
+     *
      * @return Server address (IP:port or hostname)
      */
     private static String getServerAddress(ClientHandshakePacketListenerImpl handshake) {
         try {
             // Try to get server info from Minecraft instance
-            var serverData = ((ClientHandshakeAccessor)handshake).authlogic$getServerData();
+            var serverData = ((ClientHandshakeAccessor) handshake).authlogic$getServerData();
 
             if (serverData == null)
                 serverData = Minecraft.getInstance().getCurrentServer();

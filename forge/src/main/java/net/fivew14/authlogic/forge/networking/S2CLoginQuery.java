@@ -20,13 +20,13 @@ import java.util.function.Supplier;
 
 /**
  * Forge client-side handler for server authentication queries.
- * 
+ * <p>
  * Authentication state correlation is handled at the protocol level using
  * the server nonce, which is echoed in the client response.
  */
 public final class S2CLoginQuery implements IntSupplier {
     private static final Logger LOGGER = LogUtils.getLogger();
-    
+
     public static void register(SimpleChannel channel, int packetId) {
         channel.messageBuilder(S2CLoginQuery.class, packetId, NetworkDirection.LOGIN_TO_CLIENT)
                 .encoder(S2CLoginQuery::encode).decoder(S2CLoginQuery::decode)
@@ -56,25 +56,25 @@ public final class S2CLoginQuery implements IntSupplier {
     public void setLoginIndex(int loginIndex) {
         this.loginIndex = loginIndex;
     }
-    
+
     /**
      * Server-side factory method called by Forge to create login queries.
      * This is called once per connecting client.
-     * 
+     * <p>
      * The actual challenge packet is created in encode() to ensure fresh
      * state generation at serialization time.
      */
     public static List<Pair<String, S2CLoginQuery>> buildServerQuery(boolean isLocal) {
-        LOGGER.debug("buildServerQuery called with isLocal={}, isIntegratedServer={}", 
-            isLocal, AuthLogic.isIntegratedServer());
-        
+        LOGGER.debug("buildServerQuery called with isLocal={}, isIntegratedServer={}",
+                isLocal, AuthLogic.isIntegratedServer());
+
         if (isLocal || AuthLogic.isIntegratedServer()) {
             // Skip authentication for local/singleplayer/integrated server
             LOGGER.debug("Skipping authentication query for local/integrated server (isLocal={}, isIntegrated={})",
-                isLocal, AuthLogic.isIntegratedServer());
+                    isLocal, AuthLogic.isIntegratedServer());
             return java.util.Collections.emptyList();
         }
-        
+
         LOGGER.debug("Building authentication query for remote client");
         // Return empty query - payload will be generated in encode()
         return java.util.Collections.singletonList(Pair.of("authlogic:login", new S2CLoginQuery()));
@@ -83,7 +83,7 @@ public final class S2CLoginQuery implements IntSupplier {
     public static void encode(S2CLoginQuery msg, FriendlyByteBuf buf) {
         // Generate fresh server challenge at encode time
         FriendlyByteBuf query = ServerNetworking.getServerQuery();
-        
+
         // Write payload bytes in a framed way
         buf.writeVarInt(query.readableBytes());
         buf.writeBytes(query, query.readerIndex(), query.readableBytes());
@@ -98,7 +98,7 @@ public final class S2CLoginQuery implements IntSupplier {
     public static void handle(HandshakeHandler h, S2CLoginQuery msg, Supplier<NetworkEvent.Context> ctx) {
         try {
             String serverAddress = getServerAddress(ctx.get());
-            
+
             // Skip authentication for local/integrated server connections
             if (isLocalAddress(serverAddress)) {
                 LOGGER.debug("Skipping authentication for local connection: {}", serverAddress);
@@ -107,12 +107,12 @@ public final class S2CLoginQuery implements IntSupplier {
                 ctx.get().setPacketHandled(true);
                 return;
             }
-            
+
             FriendlyByteBuf response = AuthLogicClient.handleServerChallenge(msg.payload, serverAddress);
-            
+
             ForgeNetworking.CHANNEL.reply(new C2SQueryResponse(response), ctx.get());
             ctx.get().setPacketHandled(true);
-            
+
         } catch (VerificationException e) {
             LOGGER.error("Authentication failed: {}", e.getMessage());
             disconnectWithError(ctx.get(), e.getVisualError());
@@ -123,14 +123,14 @@ public final class S2CLoginQuery implements IntSupplier {
             ctx.get().setPacketHandled(false);
         }
     }
-    
+
     /**
      * Checks if the address is a local/integrated server address.
      * Local addresses use memory pipes and have formats like "local:E:xxxxx".
-     * 
+     * <p>
      * NOTE: We only skip for memory pipe addresses (local:), NOT for localhost/127.0.0.1
      * because a dedicated server running on localhost still requires authentication.
-     * 
+     *
      * @param address Server address
      * @return true if this is a local memory pipe connection (integrated server)
      */
@@ -138,11 +138,11 @@ public final class S2CLoginQuery implements IntSupplier {
         // Only skip for Forge memory pipe addresses used by integrated servers
         return address != null && address.startsWith("local:");
     }
-    
+
     /**
      * Disconnects the client with an error message.
-     * 
-     * @param ctx Network event context
+     *
+     * @param ctx     Network event context
      * @param message Error message to display
      */
     private static void disconnectWithError(NetworkEvent.Context ctx, Component message) {
@@ -152,10 +152,10 @@ public final class S2CLoginQuery implements IntSupplier {
             LOGGER.error("Failed to disconnect client", e);
         }
     }
-    
+
     /**
      * Extracts server address from the network context.
-     * 
+     *
      * @param ctx Network event context
      * @return Server address (IP:port or hostname)
      */

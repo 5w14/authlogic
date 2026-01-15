@@ -7,7 +7,8 @@ public class FinishedAuthState extends CommonAuthState {
 //        return this.authentication.isAuthenticated();
     }
 
-    @Override public boolean isFinished() {
+    @Override
+    public boolean isFinished() {
         return true;
     }
 }

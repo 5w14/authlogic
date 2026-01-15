@@ -14,7 +14,7 @@ public class MultiplayerScreenMixin {
     public void authlogic$showMultiplayerPasswordSetup(CallbackInfo ci) {
         // Reload trusted servers from disk in case config was edited externally
         AuthLogicClient.getStorage().reloadServers();
-        
+
         if (AuthLogicClient.openSetupMultiplayerScreen((Screen) (Object) this))
             ci.cancel();
     }

@@ -8,6 +8,9 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(ClientHandshakePacketListenerImpl.class)
 public interface ClientHandshakeAccessor {
-    @Accessor("serverData") ServerData authlogic$getServerData();
-    @Accessor("connection") Connection authlogic$getConnection();
+    @Accessor("serverData")
+    ServerData authlogic$getServerData();
+
+    @Accessor("connection")
+    Connection authlogic$getConnection();
 }

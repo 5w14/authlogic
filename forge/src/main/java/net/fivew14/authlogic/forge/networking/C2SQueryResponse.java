@@ -19,14 +19,14 @@ import java.util.function.Supplier;
 
 /**
  * Forge server-side handler for client authentication responses.
- * 
+ * <p>
  * Authentication state correlation is handled at the protocol level using
  * the server nonce echoed in the client response, so no connection ID
  * management is needed here.
  */
 public final class C2SQueryResponse implements IntSupplier {
     private static final Logger LOGGER = LogUtils.getLogger();
-    
+
     public static void register(SimpleChannel channel, int packetId) {
         channel.messageBuilder(C2SQueryResponse.class, packetId, NetworkDirection.LOGIN_TO_SERVER)
                 .encoder(C2SQueryResponse::encode).decoder(C2SQueryResponse::decode)
@@ -41,7 +41,7 @@ public final class C2SQueryResponse implements IntSupplier {
     public C2SQueryResponse(FriendlyByteBuf payload) {
         this.payload = payload;
     }
-    
+
     /**
      * Checks if this is an empty/skip response (for local connections).
      */
@@ -78,14 +78,14 @@ public final class C2SQueryResponse implements IntSupplier {
     public static void handle(HandshakeHandler h, C2SQueryResponse msg, Supplier<NetworkEvent.Context> ctx) {
         LOGGER.debug("C2SQueryResponse.handle() called, isEmpty={}", msg.isEmpty());
         var networkManager = ctx.get().getNetworkManager();
-        
+
         // Skip authentication for empty responses (local/integrated server)
         if (msg.isEmpty()) {
             LOGGER.debug("Received empty auth response, skipping authentication (local connection)");
             ctx.get().setPacketHandled(true);
             return;
         }
-        
+
         try {
             // Get the expected username from Minecraft's login handler game profile via mixin accessor
             String expectedUsername = "unknown";
@@ -95,15 +95,15 @@ public final class C2SQueryResponse implements IntSupplier {
                     expectedUsername = profile.getName();
                 }
             }
-            
+
             LOGGER.debug("Validating client response for expected username: {}", expectedUsername);
-            
+
             // Validate client response - correlation is by server nonce in the response
             ServerNetworking.validateClientResponse(msg.payload, expectedUsername);
-            
+
             LOGGER.debug("Client authenticated successfully: {}", expectedUsername);
             ctx.get().setPacketHandled(true);
-            
+
         } catch (VerificationException e) {
             LOGGER.error("Client authentication failed: {}", e.getMessage());
             networkManager.disconnect(Component.literal("Authentication failed: " + e.getMessage()));

@@ -14,13 +14,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class VerificationRegistry {
     private static final Logger LOGGER = LogUtils.getLogger();
-    
+
     private static final Map<ResourceLocation, VerificationCodec> CODECS = new ConcurrentHashMap<>();
-    
+
     /**
      * Registers a verification codec.
-     * 
-     * @param type Resource location for this codec
+     *
+     * @param type  Resource location for this codec
      * @param codec Codec implementation
      * @throws IllegalStateException if type is already registered
      */
@@ -31,10 +31,10 @@ public class VerificationRegistry {
         CODECS.put(type, codec);
         LOGGER.debug("Registered verification codec: {}", type);
     }
-    
+
     /**
      * Gets a verification codec by type.
-     * 
+     *
      * @param type Resource location for the codec
      * @return Codec implementation
      * @throws IllegalArgumentException if type is not registered
@@ -46,19 +46,19 @@ public class VerificationRegistry {
         }
         return codec;
     }
-    
+
     /**
      * Gets all registered codec types.
-     * 
+     *
      * @return Set of registered ResourceLocations
      */
     public static Set<ResourceLocation> getRegisteredTypes() {
         return CODECS.keySet();
     }
-    
+
     /**
      * Checks if a codec type is registered.
-     * 
+     *
      * @param type Resource location to check
      * @return true if registered
      */

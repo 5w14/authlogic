@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Fabric server-side networking for AuthLogic authentication.
- * 
+ * <p>
  * Authentication state correlation is handled at the protocol level using
  * the server nonce, so no connection ID management is needed here.
  */
@@ -34,10 +34,10 @@ public class FabricServerNetworking {
     }
 
     private static void sendQueryToClient(
-        ServerLoginPacketListenerImpl handler, 
-        MinecraftServer server, 
-        PacketSender packetSender, 
-        ServerLoginNetworking.LoginSynchronizer loginSynchronizer
+            ServerLoginPacketListenerImpl handler,
+            MinecraftServer server,
+            PacketSender packetSender,
+            ServerLoginNetworking.LoginSynchronizer loginSynchronizer
     ) {
         // No need for verification for singleplayer/integrated servers.
         if (server.isSingleplayer() || AuthLogic.isIntegratedServer()) {
@@ -57,28 +57,28 @@ public class FabricServerNetworking {
     }
 
     private static void handleServer(
-        MinecraftServer server, 
-        ServerLoginPacketListenerImpl handler, 
-        boolean understood, 
-        FriendlyByteBuf buf, 
-        ServerLoginNetworking.LoginSynchronizer synchronizer, 
-        PacketSender packetSender
+            MinecraftServer server,
+            ServerLoginPacketListenerImpl handler,
+            boolean understood,
+            FriendlyByteBuf buf,
+            ServerLoginNetworking.LoginSynchronizer synchronizer,
+            PacketSender packetSender
     ) {
         if (!understood) {
             LOGGER.warn("Client did not understand authentication query");
             handler.disconnect(Component.literal("Client does not support AuthLogic authentication"));
             return;
         }
-        
+
         // CRITICAL: Copy the buffer before async use - Netty will release the original
         // buffer after this handler returns, but we need the data in the async task
         byte[] responseData = new byte[buf.readableBytes()];
         buf.readBytes(responseData);
-        
+
         // Get username now on the Netty thread (before async)
         GameProfile profile = ((ServerLoginPacketListenerImplAccessor) handler).authlogic$getGameProfile();
         String expectedUsername = profile != null ? profile.getName() : "unknown";
-        
+
         // Use synchronizer.waitFor() to block login until authentication completes.
         // This is critical because validateClientResponse() may make blocking HTTP calls
         // to Mojang's API for online mode verification, which would otherwise complete
@@ -86,7 +86,7 @@ public class FabricServerNetworking {
         synchronizer.waitFor(CompletableFuture.runAsync(() -> {
             // Reconstruct buffer from copied data
             FriendlyByteBuf bufCopy = new FriendlyByteBuf(Unpooled.wrappedBuffer(responseData));
-            
+
             try {
                 ServerNetworking.validateClientResponse(bufCopy, expectedUsername);
                 LOGGER.debug("Client authenticated successfully: {}", expectedUsername);

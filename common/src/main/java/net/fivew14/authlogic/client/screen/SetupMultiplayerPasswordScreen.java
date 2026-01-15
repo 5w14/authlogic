@@ -32,7 +32,7 @@ public class SetupMultiplayerPasswordScreen extends Screen {
 
         addRenderableWidget(new Button.Builder(Component.translatable("authlogic.screen.setup_password.button.save"), this::storePassword)
                 .bounds(this.width / 2 - width / 2, this.height - 60, width, 20).build());
-        
+
         addRenderableWidget(new Button.Builder(Component.translatable("authlogic.screen.setup_password.button.cancel"), (b) -> this.onClose())
                 .bounds(this.width / 2 - width / 2, this.height - 35, width, 20).build());
 
@@ -70,15 +70,15 @@ public class SetupMultiplayerPasswordScreen extends Screen {
     public void render(GuiGraphics guiGraphics, int i, int j, float f) {
         renderBackground(guiGraphics);
 
-        guiGraphics.drawCenteredString(this.minecraft.font, 
+        guiGraphics.drawCenteredString(this.minecraft.font,
                 Component.translatable("authlogic.screen.setup_password.title").withStyle(ChatFormatting.BOLD),
                 this.width / 2, this.height / 2 - 45, 0xFFFFFFFF);
 
-        guiGraphics.drawCenteredString(this.minecraft.font, 
+        guiGraphics.drawCenteredString(this.minecraft.font,
                 Component.translatable("authlogic.screen.setup_password.description"),
                 this.width / 2, this.height / 2 - 25, 0xFFFFFFFF);
 
-        guiGraphics.drawCenteredString(this.minecraft.font, 
+        guiGraphics.drawCenteredString(this.minecraft.font,
                 Component.translatable("authlogic.screen.setup_password.warning").withStyle(ChatFormatting.ITALIC, ChatFormatting.RED),
                 this.width / 2, this.height / 2 + 35, 0xFFFFFFFF);
 

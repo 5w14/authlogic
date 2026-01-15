@@ -29,56 +29,57 @@ import java.util.UUID;
  * Handles server challenge validation and response generation.
  */
 public class ClientNetworking {
-    
+
     /**
      * Container for Mojang player certificate data required for online mode authentication.
      * This data is obtained from Minecraft's ProfileKeyPairManager.
      */
     public record MojangCertificateData(
-        PublicKey publicKey,           // Player's RSA public key from Mojang
-        PrivateKey privateKey,         // Player's RSA private key (for signing)
-        byte[] keySignature,           // Mojang's signature on the public key
-        long expiresAtMillis           // Expiration timestamp in milliseconds
+            PublicKey publicKey,           // Player's RSA public key from Mojang
+            PrivateKey privateKey,         // Player's RSA private key (for signing)
+            byte[] keySignature,           // Mojang's signature on the public key
+            long expiresAtMillis           // Expiration timestamp in milliseconds
     ) {
         /**
          * Creates certificate data from Minecraft's ProfileKeyPair.
          * This method should be called by platform-specific code (Fabric/Forge).
-         * 
-         * @param publicKey RSA public key
-         * @param privateKey RSA private key
+         *
+         * @param publicKey    RSA public key
+         * @param privateKey   RSA private key
          * @param keySignature Mojang's signature
-         * @param expiresAt Expiration timestamp
+         * @param expiresAt    Expiration timestamp
          * @return Certificate data
          */
         public static MojangCertificateData of(PublicKey publicKey, PrivateKey privateKey, byte[] keySignature, long expiresAt) {
             return new MojangCertificateData(publicKey, privateKey, keySignature, expiresAt);
         }
-        
+
         /**
          * Checks if the certificate is still valid (not expired).
-         * 
+         *
          * @return true if valid
          */
         public boolean isValid() {
             return System.currentTimeMillis() < expiresAtMillis;
         }
     }
+
     private static final Logger LOGGER = LogUtils.getLogger();
     private static ClientStorage storage;
-    
+
     /**
      * Sets the client storage instance.
      * Must be called during initialization.
-     * 
+     *
      * @param clientStorage Client storage instance
      */
     public static void setStorage(ClientStorage clientStorage) {
         storage = clientStorage;
     }
-    
+
     /**
      * Gets the client storage instance.
-     * 
+     *
      * @return Client storage
      * @throws IllegalStateException if storage not initialized
      */
@@ -88,11 +89,11 @@ public class ClientNetworking {
         }
         return storage;
     }
-    
+
     /**
      * Gets Mojang certificate data from the ProfileKeyPairManager.
      * This is a common utility used by both Fabric and Forge.
-     * 
+     *
      * @param minecraft Minecraft instance
      * @return Optional certificate data, empty if unavailable
      */
@@ -103,67 +104,67 @@ public class ClientNetworking {
                 LOGGER.warn("ProfileKeyPairManager is null");
                 return Optional.empty();
             }
-            
+
             // Try to get the current key pair (may trigger refresh if needed)
             Optional<ProfileKeyPair> keyPairOpt = keyPairManager.prepareKeyPair()
-                .join(); // Block to get the result
-            
+                    .join(); // Block to get the result
+
             if (keyPairOpt.isEmpty()) {
                 LOGGER.warn("No ProfileKeyPair available from ProfileKeyPairManager");
                 return Optional.empty();
             }
-            
+
             ProfileKeyPair keyPair = keyPairOpt.get();
-            
+
             // Check if key pair needs refresh
             if (keyPair.dueRefresh()) {
                 LOGGER.warn("ProfileKeyPair is due for refresh, attempting to use it anyway");
             }
-            
+
             // Extract data from the profile public key and private key
             var publicKeyData = keyPair.publicKey().data();
             PrivateKey privateKey = keyPair.privateKey();
-            
+
             MojangCertificateData certData = MojangCertificateData.of(
-                publicKeyData.key(),
-                privateKey,
-                publicKeyData.keySignature(),
-                publicKeyData.expiresAt().toEpochMilli()
+                    publicKeyData.key(),
+                    privateKey,
+                    publicKeyData.keySignature(),
+                    publicKeyData.expiresAt().toEpochMilli()
             );
-            
+
             LOGGER.debug("Retrieved Mojang certificate, expires at: {}", publicKeyData.expiresAt());
             return Optional.of(certData);
-            
+
         } catch (Exception e) {
             LOGGER.error("Failed to get Mojang certificate data", e);
             return Optional.empty();
         }
     }
-    
+
     /**
      * Handles a login query from the server.
      * Validates server challenge and generates encrypted response.
-     * 
+     * <p>
      * SECURITY: Password should be hashed immediately by caller before passing to this method.
-     * 
-     * @param buf FriendlyByteBuf containing server challenge
-     * @param serverAddress Server address (IP:port or hostname)
-     * @param clientUUID Client's UUID
-     * @param username Client's username
-     * @param onlineMode true for online mode, false for offline
-     * @param passwordHash SHA-256 hash of user's password (NOT plain password)
+     *
+     * @param buf               FriendlyByteBuf containing server challenge
+     * @param serverAddress     Server address (IP:port or hostname)
+     * @param clientUUID        Client's UUID
+     * @param username          Client's username
+     * @param onlineMode        true for online mode, false for offline
+     * @param passwordHash      SHA-256 hash of user's password (NOT plain password)
      * @param mojangCertificate Optional Mojang certificate data for online mode (required if onlineMode=true)
      * @return FriendlyByteBuf containing client respons4
      * @throws VerificationException if validation fails
      */
     public static FriendlyByteBuf handleLoginQuery(
-        FriendlyByteBuf buf,
-        String serverAddress,
-        UUID clientUUID,
-        String username,
-        boolean onlineMode,
-        String passwordHash,
-        Optional<MojangCertificateData> mojangCertificate
+            FriendlyByteBuf buf,
+            String serverAddress,
+            UUID clientUUID,
+            String username,
+            boolean onlineMode,
+            String passwordHash,
+            Optional<MojangCertificateData> mojangCertificate
     ) throws VerificationException {
         try {
             // Validate password hash for offline mode only
@@ -171,57 +172,57 @@ public class ClientNetworking {
             if (!onlineMode) {
                 if (passwordHash == null || passwordHash.length() != 64) {
                     throw new VerificationException(
-                        "Password must be pre-hashed using ClientStorage.hashPassword()",
-                        Component.translatable("authlogic.error.password_not_hashed")
+                            "Password must be pre-hashed using ClientStorage.hashPassword()",
+                            Component.translatable("authlogic.error.password_not_hashed")
                     );
                 }
             }
-            
+
             // 1. Deserialize server challenge
             ServerChallengeMessage challenge = ServerChallengeMessage.fromBuf(buf);
-            
+
             // 2. Verify server signature
             if (!challenge.verify()) {
                 throw new VerificationException(
-                    "Invalid server signature - server authentication failed!",
-                    Component.translatable("authlogic.error.server_signature_invalid.title")
-                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-                        .append(Component.literal("\n\n"))
-                        .append(Component.translatable("authlogic.error.server_signature_invalid")
-                            .withStyle(ChatFormatting.RESET))
+                        "Invalid server signature - server authentication failed!",
+                        Component.translatable("authlogic.error.server_signature_invalid.title")
+                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                                .append(Component.literal("\n\n"))
+                                .append(Component.translatable("authlogic.error.server_signature_invalid")
+                                        .withStyle(ChatFormatting.RESET))
                 );
             }
-            
+
             LOGGER.debug("Server challenge signature verified");
-            
+
             // 3. Check if server is trusted (TOFU - Trust On First Use)
             Optional<PublicKey> trustedKey = getStorage().getServerKey(serverAddress);
             if (trustedKey.isPresent()) {
                 // Server was seen before - verify it's the same key
                 if (!trustedKey.get().equals(challenge.serverPublicKey)) {
                     String expectedHash = Base64.getEncoder().encodeToString(
-                        Hasher.sha256(trustedKey.get().getEncoded())).substring(0, 16) + "...";
+                            Hasher.sha256(trustedKey.get().getEncoded())).substring(0, 16) + "...";
                     String receivedHash = Base64.getEncoder().encodeToString(
-                        Hasher.sha256(challenge.serverPublicKey.getEncoded())).substring(0, 16) + "...";
-                    
+                            Hasher.sha256(challenge.serverPublicKey.getEncoded())).substring(0, 16) + "...";
+
                     throw new VerificationException(
-                        "Server public key mismatch! Possible MITM attack.",
-                        Component.empty()
-                                .append(Component.translatable("authlogic.error.server_key_mismatch.title")
-                                        .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-                                )
-                            .append(Component.literal("\n\n"))
-                            .append(Component.translatable("authlogic.error.server_key_mismatch")
-                                .withStyle(ChatFormatting.RESET, ChatFormatting.YELLOW))
-                            .append(Component.literal("\n\n"))
-                            .append(Component.translatable("authlogic.error.server_key_mismatch.detail")
-                                .withStyle(ChatFormatting.RESET, ChatFormatting.GRAY))
-                            .append(Component.literal("\n\n"))
-                            .append(Component.translatable("authlogic.error.server_key_mismatch.expected", expectedHash)
-                                .withStyle(ChatFormatting.RESET))
-                            .append(Component.literal("\n"))
-                            .append(Component.translatable("authlogic.error.server_key_mismatch.received", receivedHash)
-                                .withStyle(ChatFormatting.RESET))
+                            "Server public key mismatch! Possible MITM attack.",
+                            Component.empty()
+                                    .append(Component.translatable("authlogic.error.server_key_mismatch.title")
+                                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                                    )
+                                    .append(Component.literal("\n\n"))
+                                    .append(Component.translatable("authlogic.error.server_key_mismatch")
+                                            .withStyle(ChatFormatting.RESET, ChatFormatting.YELLOW))
+                                    .append(Component.literal("\n\n"))
+                                    .append(Component.translatable("authlogic.error.server_key_mismatch.detail")
+                                            .withStyle(ChatFormatting.RESET, ChatFormatting.GRAY))
+                                    .append(Component.literal("\n\n"))
+                                    .append(Component.translatable("authlogic.error.server_key_mismatch.expected", expectedHash)
+                                            .withStyle(ChatFormatting.RESET))
+                                    .append(Component.literal("\n"))
+                                    .append(Component.translatable("authlogic.error.server_key_mismatch.received", receivedHash)
+                                            .withStyle(ChatFormatting.RESET))
                     );
                 }
                 LOGGER.debug("Server key matches trusted key");
@@ -231,7 +232,7 @@ public class ClientNetworking {
                 getStorage().save();
                 LOGGER.debug("Trusting new server: {}", serverAddress);
             }
-            
+
             // 4. Derive client keypair from password hash (offline mode only)
             // Online mode uses Mojang certificate keys instead
             KeyPair clientKeys = null;
@@ -239,22 +240,29 @@ public class ClientNetworking {
                 getStorage().deriveClientKeys(passwordHash, challenge.serverPublicKey);
                 clientKeys = getStorage().getClientKeyPair();
             }
-            
+
             // 5. Generate client temp keypair and nonce
             KeyPair clientTempKeys = KeysProvider.generateTemporaryKeyPair();
             long clientNonce = KeysProvider.generateNonce();
-            
+
             // 6. Create auth state for encryption
             CommonAuthState state = new CommonAuthState() {
-                @Override public boolean isAuthenticated() { return false; }
-                @Override public boolean isFinished() { return false; }
+                @Override
+                public boolean isAuthenticated() {
+                    return false;
+                }
+
+                @Override
+                public boolean isFinished() {
+                    return false;
+                }
             };
             state.serverTemporaryKeys = new OptionalKeyPair();
             state.serverTemporaryKeys.publicKey = challenge.serverTempKey;
             state.clientTemporaryKeys = OptionalKeyPair.of(clientTempKeys);
             state.serverNonce = challenge.serverNonce;
             state.clientNonce = clientNonce;
-            
+
             // 7. Create payload based on mode
             Object payload;
             ResourceLocation verificationType;
@@ -263,15 +271,15 @@ public class ClientNetworking {
                 // Validate Mojang certificate is present and valid
                 if (mojangCertificate.isEmpty()) {
                     throw new VerificationException(
-                        "Online mode requires Mojang player certificate",
-                        Component.translatable("authlogic.error.mojang_certificate_missing.title")
-                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-                            .append(Component.literal("\n\n"))
-                            .append(Component.translatable("authlogic.error.mojang_certificate_missing")
-                                .withStyle(ChatFormatting.RESET))
-                            .append(Component.literal("\n"))
-                            .append(Component.translatable("authlogic.error.mojang_certificate_missing.detail")
-                                .withStyle(ChatFormatting.GRAY))
+                            "Online mode requires Mojang player certificate",
+                            Component.translatable("authlogic.error.mojang_certificate_missing.title")
+                                    .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                                    .append(Component.literal("\n\n"))
+                                    .append(Component.translatable("authlogic.error.mojang_certificate_missing")
+                                            .withStyle(ChatFormatting.RESET))
+                                    .append(Component.literal("\n"))
+                                    .append(Component.translatable("authlogic.error.mojang_certificate_missing.detail")
+                                            .withStyle(ChatFormatting.GRAY))
                     );
                 }
 
@@ -279,76 +287,76 @@ public class ClientNetworking {
 
                 if (!certData.isValid()) {
                     throw new VerificationException(
-                        "Mojang player certificate has expired",
-                        Component.translatable("authlogic.error.mojang_certificate_expired.title")
-                            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-                            .append(Component.literal("\n\n"))
-                            .append(Component.translatable("authlogic.error.mojang_certificate_expired")
-                                .withStyle(ChatFormatting.RESET))
-                            .append(Component.literal("\n"))
-                            .append(Component.translatable("authlogic.error.mojang_certificate_expired.detail")
-                                .withStyle(ChatFormatting.GRAY))
+                            "Mojang player certificate has expired",
+                            Component.translatable("authlogic.error.mojang_certificate_expired.title")
+                                    .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                                    .append(Component.literal("\n\n"))
+                                    .append(Component.translatable("authlogic.error.mojang_certificate_expired")
+                                            .withStyle(ChatFormatting.RESET))
+                                    .append(Component.literal("\n"))
+                                    .append(Component.translatable("authlogic.error.mojang_certificate_expired.detail")
+                                            .withStyle(ChatFormatting.GRAY))
                     );
                 }
 
                 LOGGER.debug("Using Mojang certificate for online mode authentication");
-                
+
                 OnlineVerificationPayload online = OnlineVerificationPayload.create(
-                    clientUUID,
-                    username,
-                    certData.publicKey(),  // Use Mojang-signed public key
-                    certData.privateKey(), // Use Mojang private key (NOT password-derived!)
-                    certData.expiresAtMillis(),
-                    certData.keySignature(),  // Use actual Mojang signature
-                    challenge.serverTempKey,
-                    clientTempKeys.getPublic(),
-                    challenge.serverNonce,
-                    clientNonce
+                        clientUUID,
+                        username,
+                        certData.publicKey(),  // Use Mojang-signed public key
+                        certData.privateKey(), // Use Mojang private key (NOT password-derived!)
+                        certData.expiresAtMillis(),
+                        certData.keySignature(),  // Use actual Mojang signature
+                        challenge.serverTempKey,
+                        clientTempKeys.getPublic(),
+                        challenge.serverNonce,
+                        clientNonce
                 );
                 payload = online;
                 verificationType = new ResourceLocation("authlogic", "online");
             } else {
                 OfflineVerificationPayload offline = OfflineVerificationPayload.create(
-                    clientUUID,
-                    username,
-                    clientKeys.getPublic(),
-                    clientKeys.getPrivate(),
-                    challenge.serverTempKey,
-                    clientTempKeys.getPublic(),
-                    challenge.serverNonce,
-                    clientNonce
+                        clientUUID,
+                        username,
+                        clientKeys.getPublic(),
+                        clientKeys.getPrivate(),
+                        challenge.serverTempKey,
+                        clientTempKeys.getPublic(),
+                        challenge.serverNonce,
+                        clientNonce
                 );
                 payload = offline;
                 verificationType = new ResourceLocation("authlogic", "offline");
             }
-            
+
             // 8. Encrypt payload
             if (!VerificationRegistry.isRegistered(verificationType)) {
                 throw new VerificationException(
-                    "Verification type not registered: " + verificationType,
-                    Component.translatable("authlogic.error.verification_type_not_registered", verificationType.toString())
+                        "Verification type not registered: " + verificationType,
+                        Component.translatable("authlogic.error.verification_type_not_registered", verificationType.toString())
                 );
             }
-            
+
             VerificationCodec codec = VerificationRegistry.get(verificationType);
             byte[] encryptedPayload = codec.encode(payload, state);
-            
+
             // 9. Create response message (echo server nonce for correlation)
             ClientResponseMessage response = ClientResponseMessage.create(
-                verificationType,
-                challenge.serverNonce,  // Echo server nonce for protocol-level correlation
-                clientNonce,
-                clientTempKeys.getPublic(),
-                encryptedPayload
+                    verificationType,
+                    challenge.serverNonce,  // Echo server nonce for protocol-level correlation
+                    clientNonce,
+                    clientTempKeys.getPublic(),
+                    encryptedPayload
             );
-            
+
             // 10. Serialize to FriendlyByteBuf
             FriendlyByteBuf responseBuf = new FriendlyByteBuf(Unpooled.buffer());
             response.writeToBuf(responseBuf);
-            
+
             LOGGER.debug("Generated client response for {} mode", onlineMode ? "online" : "offline");
             return responseBuf;
-            
+
         } catch (VerificationException e) {
             LOGGER.error("Authentication failed: {}", e.getMessage());
             throw e;
