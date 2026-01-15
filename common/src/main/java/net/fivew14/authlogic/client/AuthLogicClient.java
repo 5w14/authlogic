@@ -5,6 +5,7 @@ import dev.architectury.event.events.client.ClientLifecycleEvent;
 import net.fivew14.authlogic.client.ClientNetworking.MojangCertificateData;
 import net.fivew14.authlogic.client.screen.SetupMultiplayerPasswordScreen;
 import net.fivew14.authlogic.mixin.MinecraftAccessor;
+import net.fivew14.authlogic.utilities.SavedStorage;
 import net.fivew14.authlogic.verification.VerificationException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -22,6 +23,7 @@ public class AuthLogicClient {
 
     public static void onClientInit() {
         LOGGER.info("Initializing AuthLogic client");
+        SavedStorage.migrateFilesFromConfig();
 
         // Initialize client storage
         clientStorage = new ClientStorage();

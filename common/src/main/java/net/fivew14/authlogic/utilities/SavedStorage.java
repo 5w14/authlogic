@@ -14,14 +14,20 @@ import java.nio.file.Paths;
  * Handles JSON and text file I/O for authentication data.
  * <p>
  * Storage locations:
- * - Server: config/authlogic/server_storage.json (player keys)
- * - Server: config/authlogic/server_private_key.txt (server private key)
- * - Client: config/authlogic/client_password.txt (password hash)
- * - Client: config/authlogic/client_servers.json (trusted servers)
+ * - Root authlogic/ directory (key files):
+ *   - server_private_key.txt: Server's private key
+ *   - server_storage.json: Registered player public keys
+ *   - client_password.txt: Client's hashed password
+ *   - client_servers.json: Trusted server list
+ * - Config authlogic/ directory (configuration):
+ *   - server_whitelist.json: Whitelist integration
  */
 public class SavedStorage {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String CONFIG_DIR = "config/authlogic";
+    private static final String ROOT_DIR = "authlogic";
+
+    private static boolean hasMigrated = false;
 
     /**
      * Gets the config directory path.
@@ -42,39 +48,84 @@ public class SavedStorage {
     }
 
     /**
+     * Gets the root authlogic directory path.
+     * Creates the directory if it doesn't exist.
+     *
+     * @return Path to authlogic/
+     */
+    public static Path getRootDir() {
+        Path dir = Paths.get(ROOT_DIR);
+        try {
+            if (!Files.exists(dir)) {
+                Files.createDirectories(dir);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create root authlogic directory", e);
+        }
+        return dir;
+    }
+
+    /**
+     * Migrates files from config/authlogic/ to root authlogic/ directory.
+     * Only migrates if the file doesn't already exist in the root directory.
+     */
+    public static void migrateFilesFromConfig() {
+        if (hasMigrated) {
+            return;
+        }
+
+        migrateFile(getConfigDir().resolve("server_private_key.txt"), getRootDir().resolve("server_private_key.txt"));
+        migrateFile(getConfigDir().resolve("server_storage.json"), getRootDir().resolve("server_storage.json"));
+        migrateFile(getConfigDir().resolve("client_password.txt"), getRootDir().resolve("client_password.txt"));
+        migrateFile(getConfigDir().resolve("client_servers.json"), getRootDir().resolve("client_servers.json"));
+
+        hasMigrated = true;
+    }
+
+    private static void migrateFile(Path oldPath, Path newPath) {
+        try {
+            if (Files.exists(oldPath) && !Files.exists(newPath)) {
+                Files.copy(oldPath, newPath);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to migrate file from " + oldPath + " to " + newPath, e);
+        }
+    }
+
+    /**
      * Gets path to server storage file.
      *
-     * @return Path to server_storage.json
+     * @return Path to authlogic/server_storage.json
      */
     public static Path getServerStoragePath() {
-        return getConfigDir().resolve("server_storage.json");
+        return getRootDir().resolve("server_storage.json");
     }
 
     /**
      * Gets path to server private key file.
      *
-     * @return Path to server_private_key.txt
+     * @return Path to authlogic/server_private_key.txt
      */
     public static Path getServerPrivateKeyPath() {
-        return getConfigDir().resolve("server_private_key.txt");
+        return getRootDir().resolve("server_private_key.txt");
     }
 
     /**
      * Gets path to client password file.
      *
-     * @return Path to client_password.txt
+     * @return Path to authlogic/client_password.txt
      */
     public static Path getClientPasswordPath() {
-        return getConfigDir().resolve("client_password.txt");
+        return getRootDir().resolve("client_password.txt");
     }
 
     /**
      * Gets path to client servers file.
      *
-     * @return Path to client_servers.json
+     * @return Path to authlogic/client_servers.json
      */
     public static Path getClientServersPath() {
-        return getConfigDir().resolve("client_servers.json");
+        return getRootDir().resolve("client_servers.json");
     }
 
     /**

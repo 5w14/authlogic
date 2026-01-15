@@ -11,6 +11,7 @@ import dev.architectury.event.events.common.LifecycleEvent;
 import dev.architectury.event.events.common.PlayerEvent;
 import dev.architectury.event.events.common.TickEvent;
 import net.fivew14.authlogic.AuthLogic;
+import net.fivew14.authlogic.utilities.SavedStorage;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -39,6 +40,7 @@ public class AuthLogicDedicated {
 
     public static void onDedicatedStartup() {
         isRunningDedicated = true;
+        SavedStorage.migrateFilesFromConfig();
         LifecycleEvent.SERVER_STARTED.register(AuthLogicDedicated::serverStarting);
         PlayerEvent.PLAYER_JOIN.register(AuthLogicDedicated::onPlayerJoin);
         TickEvent.SERVER_POST.register(AuthLogicDedicated::onServerTick);
