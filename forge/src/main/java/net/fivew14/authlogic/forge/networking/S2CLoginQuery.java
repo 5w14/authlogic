@@ -116,11 +116,11 @@ public final class S2CLoginQuery implements IntSupplier {
         } catch (VerificationException e) {
             LOGGER.error("Authentication failed: {}", e.getMessage());
             disconnectWithError(ctx.get(), e.getVisualError());
-            ctx.get().setPacketHandled(false);
+            ctx.get().setPacketHandled(true);
         } catch (Exception e) {
             LOGGER.error("Unexpected error during authentication", e);
-            disconnectWithError(ctx.get(), Component.literal("Authentification errored with the following message: " + e));
-            ctx.get().setPacketHandled(false);
+            disconnectWithError(ctx.get(), Component.literal("Authentication errored with the following message: " + e));
+            ctx.get().setPacketHandled(true);
         }
     }
 

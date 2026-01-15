@@ -6,6 +6,7 @@ import net.fivew14.authlogic.mixin.ServerLoginPacketListenerImplAccessor;
 import net.fivew14.authlogic.server.ServerNetworking;
 import net.fivew14.authlogic.verification.VerificationException;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.PacketListener;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import net.minecraftforge.network.HandshakeHandler;
@@ -14,6 +15,7 @@ import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.simple.SimpleChannel;
 import org.slf4j.Logger;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
@@ -106,13 +108,29 @@ public final class C2SQueryResponse implements IntSupplier {
 
         } catch (VerificationException e) {
             LOGGER.error("Client authentication failed: {}", e.getMessage());
-            networkManager.disconnect(Component.literal("Authentication failed: " + e.getMessage()));
-            ctx.get().setPacketHandled(false);
+            ctx.get().setPacketHandled(true);
+            disconnectWithError(networkManager.getPacketListener(), e.getVisualError());
         } catch (Exception e) {
             LOGGER.error("Unexpected error during authentication", e);
-            networkManager.disconnect(Component.literal("Authentication error: " + e.getMessage()));
-            ctx.get().setPacketHandled(false);
+            ctx.get().setPacketHandled(true);
+            disconnectWithError(networkManager.getPacketListener(), Component.literal("Unexpected error during authentication"));
         }
+    }
+
+    private static void disconnectWithError(PacketListener connection, Component message) {
+        if (!(connection instanceof ServerLoginPacketListenerImpl listener))
+            throw new RuntimeException("Packet listener is not login packet listener");
+
+        // For some reason, to actually display the error message on the client,
+        // you need the network code to wait a little.
+        // If there's a way to actually reliably show the error message on the client without this mess, let me know.
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException ex) { }
+
+            listener.disconnect(message);
+        });
     }
 
     @Override

@@ -6,6 +6,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.fivew14.authlogic.crypto.SignatureProvider;
 import net.fivew14.authlogic.protocol.SerializationUtil;
 import net.fivew14.authlogic.server.state.CommonAuthState;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.UUIDUtil;
 import org.slf4j.Logger;
 
@@ -84,7 +85,10 @@ public record OfflineVerificationPayload(
             );
 
             if (!signatureValid) {
-                throw new VerificationException("Invalid client signature");
+                throw new VerificationException(
+                        "Client signature verification failed for " + username + " (" + playerUUID + ")",
+                        Component.literal("Authentication failed. Please try again or restart your game.")
+                );
             }
 
             LOGGER.debug("Offline verification successful for {}", username);

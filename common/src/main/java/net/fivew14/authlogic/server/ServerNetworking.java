@@ -13,6 +13,7 @@ import net.fivew14.authlogic.verification.VerificationException;
 import net.fivew14.authlogic.verification.VerificationRegistry;
 import net.fivew14.authlogic.verification.VerificationResult;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 
 import java.security.KeyPair;
@@ -161,7 +162,8 @@ public class ServerNetworking {
             if (!result.username.equals(expectedUsername)) {
                 throw new VerificationException(
                         "Username mismatch: authenticated as '" + result.username +
-                                "' but connecting as '" + expectedUsername + "'"
+                                "' but connecting as '" + expectedUsername + "'",
+                        Component.literal("Authentication failed. Your account doesn't match the expected username.")
                 );
             }
 
@@ -175,8 +177,8 @@ public class ServerNetworking {
             if (getStorage().isOnlineModeUsername(result.username)) {
                 if (!result.isOnlineMode) {
                     throw new VerificationException(
-                            "Username '" + result.username + "' is registered as an online-mode player. " +
-                                    "Offline-mode authentication is not allowed for this username."
+                            "Offline-mode authentication attempted for online-mode username '" + result.username + "'",
+                            Component.literal("This username is registered for online mode only. Please use official Minecraft to join.")
                     );
                 }
                 LOGGER.debug("Verified {} is using online mode as required", result.username);
@@ -210,9 +212,8 @@ public class ServerNetworking {
                     // Player was seen before - verify it's the same key
                     if (!storedKey.get().equals(result.clientPublicKey)) {
                         throw new VerificationException(
-                                "Player public key mismatch for " + result.username + " (" + result.playerUUID + ")! " +
-                                        "This could indicate a compromised account or password change. " +
-                                        "Server admin must manually remove the old key to allow re-registration."
+                                "Player public key mismatch for " + result.username + " (" + result.playerUUID + ")",
+                                Component.literal("Password mismatch! Contact the server admin to reset your password.")
                         );
                     }
                     LOGGER.debug("Player key matches trusted key for {}", result.username);

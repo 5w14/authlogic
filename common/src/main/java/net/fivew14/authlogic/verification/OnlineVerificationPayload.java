@@ -8,6 +8,7 @@ import net.fivew14.authlogic.crypto.MojangPublicKeyFetcher;
 import net.fivew14.authlogic.crypto.SignatureProvider;
 import net.fivew14.authlogic.protocol.SerializationUtil;
 import net.fivew14.authlogic.server.state.CommonAuthState;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.UUIDUtil;
 import org.slf4j.Logger;
 
@@ -76,19 +77,26 @@ public record OnlineVerificationPayload(
 
             // 1. Check expiry
             if (expiresAtMillis < System.currentTimeMillis()) {
-                throw new VerificationException("Client public key has expired");
+                throw new VerificationException(
+                        "Client public key expired at " + expiresAtMillis,
+                        Component.literal("Your session key has expired. Please restart Minecraft to get a new one.")
+                );
             }
 
             // 2. Verify Mojang signature on the public key
             if (!verifyMojangSignature()) {
-                throw new VerificationException("Invalid Mojang signature. Restart your game and/or launcher.");
+                throw new VerificationException(
+                        "Mojang signature verification failed for UUID " + playerUUID,
+                        Component.literal("Your Minecraft session is invalid. Please restart your game to refresh your session.")
+                );
             }
             LOGGER.debug("Mojang signature verified for {}", playerUUID);
 
             // 3. Verify UUID matches username via Mojang API
             if (!verifyUUIDMatchesUsername()) {
                 throw new VerificationException(
-                        "UUID-username mismatch: UUID " + playerUUID + " does not belong to '" + username + "'"
+                        "UUID-username mismatch: UUID " + playerUUID + " does not belong to '" + username + "'",
+                        Component.literal("Your Minecraft account doesn't match your username. Please restart your game.")
                 );
             }
             LOGGER.debug("UUID-username match verified for {} = {}", playerUUID, username);
@@ -114,7 +122,10 @@ public record OnlineVerificationPayload(
             );
 
             if (!signatureValid) {
-                throw new VerificationException("Invalid client signature");
+                throw new VerificationException(
+                        "Client signature verification failed for " + username + " (" + playerUUID + ")",
+                        Component.literal("Authentication failed. Please try again or restart your game.")
+                );
             }
 
             LOGGER.debug("Online verification successful for {} ({})", username, playerUUID);
