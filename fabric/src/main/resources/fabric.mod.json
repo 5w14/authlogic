@@ -12,7 +12,7 @@
     "issues": "https://github.com/5w14/auth-logic/issues"
   },
   "license": "MIT",
-  "icon": "assets/authlogic/icon.png",
+  "icon": "icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
