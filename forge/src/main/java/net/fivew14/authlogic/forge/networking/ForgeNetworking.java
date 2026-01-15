@@ -18,6 +18,4 @@ public class ForgeNetworking {
         S2CLoginQuery.register(CHANNEL, id++);
         C2SQueryResponse.register(CHANNEL, id++);
     }
-
-
 }

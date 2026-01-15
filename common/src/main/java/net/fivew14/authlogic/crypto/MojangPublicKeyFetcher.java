@@ -13,47 +13,35 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.PublicKey;
-import java.security.SecureRandom;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+
 import java.util.concurrent.TimeUnit;
 
 /**
  * Fetches and caches Mojang's public keys for player certificate verification.
- * Uses in-memory cache with randomized TTL between 20-60 minutes to prevent
- * thundering herd on cache expiry.
+ * Uses in-memory cache with 120-minute TTL.
  */
 public class MojangPublicKeyFetcher {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String MOJANG_PUBLIC_KEYS_URL = "https://api.minecraftservices.com/publickeys";
-    
-    /**
-     * Minimum cache duration: 20 minutes.
-     */
-    private static final long CACHE_MIN_DURATION_MS = TimeUnit.MINUTES.toMillis(20);
-    
-    /**
-     * Maximum cache duration: 60 minutes.
-     */
-    private static final long CACHE_MAX_DURATION_MS = TimeUnit.MINUTES.toMillis(60);
-    
+
     private static final Gson GSON = new Gson();
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final long CACHE_DURATION_MS = TimeUnit.MINUTES.toMillis(120);
     
     private static List<PublicKey> cachedPublicKeys = new ArrayList<>();
     private static long cacheExpiryTime = 0;
     private static CompletableFuture<List<PublicKey>> ongoingFetch = null;
-    
+
     /**
      * Gets Mojang's public keys, using cache if available.
      * Fetches from API if cache is expired or empty.
-     * 
-     * Cache TTL is randomized between 20-60 minutes to prevent thundering herd
-     * when multiple servers/clients refresh at the same time.
-     * 
+     *
+     * Cache TTL is fixed at 120 minutes.
+     *
      * @return CompletableFuture with list of Mojang public keys
      */
     public static synchronized CompletableFuture<List<PublicKey>> getPublicKeys() {
@@ -134,14 +122,12 @@ public class MojangPublicKeyFetcher {
             keys.add(publicKey);
         }
         
-        // Update cache with randomized TTL (20-60 minutes)
+        // Update cache
         cachedPublicKeys = new ArrayList<>(keys);
-        long randomTTL = CACHE_MIN_DURATION_MS + 
-            (long) (RANDOM.nextDouble() * (CACHE_MAX_DURATION_MS - CACHE_MIN_DURATION_MS));
-        cacheExpiryTime = System.currentTimeMillis() + randomTTL;
+        cacheExpiryTime = System.currentTimeMillis() + CACHE_DURATION_MS;
         
         LOGGER.debug("Successfully fetched {} Mojang public keys (cache expires in {} min)", 
-            keys.size(), randomTTL / 60000);
+            keys.size(), CACHE_DURATION_MS / 60000);
         return keys;
     }
     

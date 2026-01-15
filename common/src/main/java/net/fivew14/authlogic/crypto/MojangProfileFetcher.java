@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 public class MojangProfileFetcher {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String MOJANG_SESSION_URL = "https://sessionserver.mojang.com/session/minecraft/profile/";
-    private static final long CACHE_DURATION_MS = TimeUnit.MINUTES.toMillis(5); // 5 minute cache
+    private static final long CACHE_DURATION_MS = TimeUnit.MINUTES.toMillis(60); // 60 minute cache
     private static final Gson GSON = new Gson();
     
     /**
